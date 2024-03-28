@@ -60,8 +60,7 @@ export function trackExternalLinks(domains, profileId, sourceId) {
                     if (linkDomain.endsWith(allowedDomain)) {
                         console.debug(`[Tracardi] Patched Link: ${link.href}`)
                         const parameter = `__tr_pid=${profileId.trim()}&__tr_src=${sourceId.trim()}`;
-                        const updatedHref = link.href + (link.href.indexOf('?') === -1 ? '?' : '&') + parameter;
-                        link.href = updatedHref
+                        link.href = link.href + (link.href.indexOf('?') === -1 ? '?' : '&') + parameter;
                     }
                 }
             } catch (error) {

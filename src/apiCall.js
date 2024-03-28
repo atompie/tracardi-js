@@ -37,4 +37,4 @@ export async function request({url, header, method, data, asBeacon=false}) {
 
     }
 
-};
+}

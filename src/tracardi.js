@@ -9,35 +9,17 @@ import {getSessionId, keepSessionId, setProfileId} from "./utils/storage";
 
 export default function tracardiPlugin(options) {
 
-    // const cookieName = 'tracardi-session-id';
     const profileName = 'tracardi-profile-id';
-    // const cookieExpires = 30 * 60;  // 30 min
-
-    // function getSessionId() {
-    //     // Every time the cookie is fetched its expiration gets prolonged.
-    //     let sessionId = getCookie(cookieName);
-    //     if (!sessionId) {
-    //         sessionId = uuid4();
-    //         console.warn("Cookie missing or expired", cookieName, sessionId)
-    //     }
-    //     setCookie(cookieName, sessionId, cookieExpires, '/')
-    //     return sessionId
-    // }
 
     const startScriptSessionId = getSessionId()
     console.debug("[Tracardi] Session:", startScriptSessionId)
 
-    // const clientInfo = ClientInfo();
     const event = Event();
     const trackEventList = EventsList({}, window.response);
     const immediateTrackEventList = EventsList({}, window.response);
     const beaconTrackEventList = EventsList({}, window.response);
     let profileId = getItem(profileName)
     let singleApiCall = {}
-
-    // const isObject = (a) => {
-    //     return (!!a) && (a.constructor === Object);
-    // }
 
     function injectUX(ux) {
         if (Array.isArray(ux) && ux.length > 0) {
@@ -80,10 +62,23 @@ export default function tracardiPlugin(options) {
     async function onTrigger(element) {
         console.log(`Element (${element.id}) is now visible on the screen.`);
         // Access the custom data directly from the element
-        console.log("Custom Data:", element.customData);
 
-        const payload = element.customData.payload
+        let payload = element.customData.payload
         const config = element.customData.config
+        if (!payload?.properties) {
+            payload.properties = {}
+        }
+        if(element.hasAttribute('alt')) {
+            payload.properties.label = element.getAttribute('alt')
+        } else if (element.hasAttribute('title')) {
+            payload.properties.label = element.getAttribute('title')
+        } else if (element.hasAttribute('aria-label')) {
+            payload.properties.label = element.getAttribute('aria-label')
+        }
+
+        if(element.hasAttribute('src')) {
+            payload.properties.url = element.getAttribute('src')
+        }
 
         const eventPayload = await getEventPayload(payload, config)
         const eventContext = getEventContext(config?.tracker?.context, payload)
@@ -170,56 +165,6 @@ export default function tracardiPlugin(options) {
         });
     }
 
-
-    // function trackExternalLinks(domains, profileId, sourceId) {
-    //     // Add a click event listener to all anchor tags (links) on the page
-    //     const links = document.getElementsByTagName('a');
-    //     for (let i = 0; i < links.length; i++) {
-    //         const link = links[i];
-    //
-    //         // Check if the link has a full URL (starts with 'http://' or 'https://')
-    //         if (link.href.indexOf('http://') === 0 || link.href.indexOf('https://') === 0) {
-    //
-    //             try {
-    //                 const parsedUrl = new URL(link.href);
-    //                 const linkDomain = parsedUrl.hostname;
-    //
-    //                 for (const allowedDomain of domains) {
-    //                     if (linkDomain.endsWith(allowedDomain)) {
-    //                         // Add a click event listener to the link
-    //                         link.addEventListener('click', function (event) {
-    //                             // Prevent the default behavior of the link click, which would cause the browser to navigate to the link's href
-    //                             event.preventDefault();
-    //
-    //                             // Get the href attribute of the clicked link
-    //                             const href = this.getAttribute('href');
-    //
-    //                             const parameter = `__tr_pid=${profileId.trim()}&__tr_src=${sourceId.trim()}`;
-    //                             const updatedHref = href + (href.indexOf('?') === -1 ? '?' : '&') + parameter;
-    //
-    //                             // Navigate to the updated URL
-    //                             window.location.href = updatedHref;
-    //                         });
-    //
-    //                         // const parameter = `__tr_pid=${profileId.trim()}&__tr_src=${sourceId.trim()}`;
-    //                         // const updatedHref = link.href + (link.href.indexOf('?') === -1 ? '?' : '&') + parameter;
-    //                         // link.href = updatedHref
-    //
-    //                         console.debug(`[Tracardi] Patched Link: ${link.href}`)
-    //                     }
-    //                 }
-    //             } catch (error) {
-    //                 console.error('Invalid URL: ' + link.href);
-    //             }
-    //         }
-    //     }
-    //
-    // }
-
-    // function isEmptyObjectOrNull(obj) {
-    //     return !obj || obj === null || (isObject(obj) && Object.keys(obj).length === 0);
-    // }
-
     function hasMethods(obj /*, method list as strings */) {
         let i = 1, methodName;
         while ((methodName = arguments[i++])) {
@@ -229,172 +174,6 @@ export default function tracardiPlugin(options) {
         }
         return true;
     }
-
-    // async function fireExternalApiCalls(config, eventPayload) {
-    //     await Promise.all(config.map(
-    //         async (externalConfig) => {
-    //             let data = getItem(externalConfig.storage)
-    //             if (data) {
-    //                 try {
-    //                     eventPayload.context = {
-    //                         ...eventPayload.context,
-    //                         [externalConfig.key]: JSON.parse(data)
-    //                     }
-    //                 } catch (e) {
-    //                     removeItem(externalConfig.storage)
-    //                 }
-    //             } else {
-    //                 try {
-    //                     const response = await sendTrackPayload({
-    //                         url: externalConfig?.url,
-    //                         method: externalConfig?.method,
-    //                         body: externalConfig?.body
-    //                     })
-    //                     if (response?.data) {
-    //                         setItem(externalConfig.storage, JSON.stringify(response?.data));
-    //                         eventPayload.context = {
-    //                             ...eventPayload.context,
-    //                             [externalConfig.key]: response?.data
-    //                         }
-    //                     }
-    //                 } catch (e) {
-    //                     console.error(e)
-    //                 }
-    //             }
-    //         }
-    //     ))
-    //
-    //     return eventPayload
-    // }
-
-    // function getProfileId(config) {
-    //     if (config?.tracker?.profile) {
-    //         return config.tracker.profile
-    //     }
-    //     return (profileId != null)
-    //         ? {id: profileId}
-    //         : null
-    // }
-
-    // async function getEventPayload(payload, config) {
-    //     const context = config.tracker.context
-    //     const deviceContext = config?.context
-    //
-    //     const now = new Date();
-    //
-    //     let eventPayload = {
-    //         time: {
-    //             create: toUTCISOStringWithMilliseconds(now)
-    //         },
-    //         type: payload.event,
-    //         source: config.tracker.source,
-    //         session: {id: getSessionId()},
-    //         profile: getProfileId(config),
-    //         context: {
-    //             time: clientInfo.time(),
-    //         },
-    //         properties: payload.properties,
-    //     }
-    //
-    //     if (deviceContext) {
-    //         eventPayload.context.device = deviceContext
-    //     }
-    //
-    //     if (typeof context.browser === "undefined" || context?.browser === true) {
-    //         eventPayload.context.browser = {
-    //             ...eventPayload.context.browser,
-    //             local: clientInfo.browser()
-    //         }
-    //     }
-    //
-    //     if (typeof context.screen === "undefined" || context?.screen === true) {
-    //         eventPayload.context.screen = {
-    //             ...eventPayload.context.screen,
-    //             local: clientInfo.screen()
-    //         }
-    //     }
-    //
-    //     let googleAnalyticsId = getCookie('_ga');
-    //     if (googleAnalyticsId) {
-    //         eventPayload.context.ids = {
-    //             ga: googleAnalyticsId
-    //         }
-    //     }
-    //
-    //     if (context?.storage === true) {
-    //         eventPayload.context.storage = {
-    //             ...eventPayload.context.storage,
-    //             local: clientInfo.storage()
-    //         }
-    //     }
-    //
-    //     if (context?.cookies === true) {
-    //         eventPayload.context.storage = {
-    //             ...eventPayload.context.storage,
-    //             cookies: clientInfo.cookies()
-    //         }
-    //     }
-    //
-    //     if (context?.location) {
-    //         const geo = getCookie('__tr_geo')
-    //         try {
-    //             eventPayload.context.location = JSON.parse(geo)
-    //         } catch (e) {
-    //             removeCookie('__tr_geo')
-    //         }
-    //
-    //     }
-    //
-    //     // Externals
-    //     if (config?.tracker?.external) {
-    //         eventPayload = await fireExternalApiCalls(config?.tracker?.external, eventPayload)
-    //     }
-    //
-    //     if (typeof context.tracardiPass === "undefined" || context?.tracardiPass === true) {
-    //         const queryString = window.location.search
-    //         const urlParams = new URLSearchParams(queryString)
-    //
-    //         const hasPid = urlParams.has('__tr_pid') ||
-    //             urlParams.has('__tr_src')
-    //
-    //         if (hasPid) {
-    //             const passedPid = {
-    //                 ...(urlParams.has('__tr_pid')) && {profile: urlParams.get("__tr_pid")},
-    //                 ...(urlParams.has('__tr_src')) && {source: urlParams.get("__tr_src")}
-    //             }
-    //             eventPayload.context.tracardi = {
-    //                 pass: passedPid
-    //             }
-    //         }
-    //     }
-    //
-    //     if (typeof context.utm === "undefined" || context?.utm === true) {
-    //         const queryString = window.location.search
-    //         const urlParams = new URLSearchParams(queryString)
-    //
-    //         const hasUtm = urlParams.has('utm_source') ||
-    //             urlParams.has('utm_medium') ||
-    //             urlParams.has('utm_campaign') ||
-    //             urlParams.has('utm_term') ||
-    //             urlParams.has('utm_content')
-    //
-    //         if (hasUtm) {
-    //             eventPayload.context.utm = {
-    //                 ...(urlParams.has('utm_source')) && {source: urlParams.get("utm_source")},
-    //                 ...(urlParams.has('utm_medium')) && {medium: urlParams.get("utm_medium")},
-    //                 ...(urlParams.has('utm_campaign')) && {campaign: urlParams.get("utm_campaign")},
-    //                 ...(urlParams.has('utm_term')) && {term: urlParams.get("utm_term")},
-    //                 ...(urlParams.has('utm_content')) && {content: urlParams.get("utm_content")},
-    //             }
-    //         }
-    //     }
-    //
-    //     if (payload.options) {
-    //         eventPayload['options'] = payload.options
-    //     }
-    //
-    //     return eventPayload;
-    // }
 
     function handleError(e) {
         if (e.response) {
