@@ -5,7 +5,7 @@ import {getItem} from "@analytics/storage-utils";
 import {addListener} from "@analytics/listener-utils";
 import {getEventContext} from "./domain/event";
 import {sendTrackPayload, trackExternalLinks} from "./utils/requests";
-import {getSessionId, keepSessionId, setProfileId} from "./utils/storage";
+import {getSessionId, keepSessionId, setProfileId, setSessionId} from "./utils/storage";
 
 export default function tracardiPlugin(options) {
 
@@ -223,6 +223,19 @@ export default function tracardiPlugin(options) {
                 // Set profile id
                 setProfileId(response?.data?.profile?.id)
             }
+
+
+            if (typeof response?.data?.session?.id === undefined ) {
+                console.error("[Tracardi] /track must return session id. No session id returned.")
+            } else if(response?.data?.session?.id !== startScriptSessionId) {
+
+                // Update session ID if changed
+                // Session can change if there is a conflict in profile ID from tacker payload and session.profile.id.
+                // To protect the old session new session is created.
+
+                setSessionId(response?.data?.session?.id)
+            }
+
 
         } catch (e) {
             handleError(e);

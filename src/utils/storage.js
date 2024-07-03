@@ -31,12 +31,16 @@ export function getProfileId(config) {
         : null
 }
 
+export function setSessionId(sessionId) {
+    setCookie(cookieName, sessionId, cookieExpires, "/")
+}
+
 export function keepSessionId(startScriptSessionId) {
-    const endScriptSessionId = getCookie(cookieName)
-    // This code fixes the error in FireFox that recreates session, god knows why.
-    if (startScriptSessionId !== endScriptSessionId) {
+    const cookieSessionId = getCookie(cookieName)
+    // Fix FF error with changing session
+    if (startScriptSessionId !== cookieSessionId) {
         console.error('[Tracardi] Tracker did not end with the same session.', startScriptSessionId, endScriptSessionId);
-        setCookie(cookieName, startScriptSessionId, cookieExpires, "/")
+        setSessionId(startScriptSessionId)
     }
 }
 
@@ -50,3 +54,4 @@ export function setProfileId(profileId) {
         setCookie('__tr_id', profileId, 30, '/')
     }
 }
+
