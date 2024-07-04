@@ -39,7 +39,7 @@ export function keepSessionId(startScriptSessionId) {
     const cookieSessionId = getCookie(cookieName)
     // Fix FF error with changing session
     if (startScriptSessionId !== cookieSessionId) {
-        console.error('[Tracardi] Tracker did not end with the same session.', startScriptSessionId, endScriptSessionId);
+        console.error('[Tracardi] Tracker did not end with the same session.', startScriptSessionId, cookieSessionId);
         setSessionId(startScriptSessionId)
     }
 }
