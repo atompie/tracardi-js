@@ -32,7 +32,11 @@ export function getProfileId(config) {
 }
 
 export function setSessionId(sessionId) {
-    setCookie(cookieName, sessionId, cookieExpires, "/")
+    if (typeof sessionId === undefined) {
+        console.error("[Tracardi] /track must return session id. No session id returned.")
+    } else {
+        setCookie(cookieName, sessionId, cookieExpires, "/")
+    }
 }
 
 export function keepSessionId(startScriptSessionId) {
@@ -45,13 +49,12 @@ export function keepSessionId(startScriptSessionId) {
 }
 
 export function setProfileId(profileId) {
-    if (!getItem(profileName)) {
+    if (typeof profileId === undefined) {
+        console.error("[Tracardi] /track must return profile id. No profile id returned.")
+    } else {
         setItem(profileName, profileId);
         setItem('__tr_pid', profileId);
         setCookie('__tr_pid', profileId, 30, '/')
-    } else {
-        setItem("__tr_id", profileId);
-        setCookie('__tr_id', profileId, 30, '/')
     }
 }
 

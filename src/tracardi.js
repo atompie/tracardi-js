@@ -214,27 +214,16 @@ export default function tracardiPlugin(options) {
                 console.error("[Tracardi] Tracardi responded", response?.data)
             }
 
-            // If browser profile is the same as context profile then consent displayed
-            // Consent is displayed when there is new profile created.
-
-            if (typeof response?.data?.profile?.id === undefined) {
-                console.error("[Tracardi] /track must return profile id. No profile id returned.")
-            } else {
-                // Set profile id
-                setProfileId(response?.data?.profile?.id)
-            }
+            // Set profile id
+            // Profile ID may change
+            setProfileId(response?.data?.profile?.id)
 
 
-            if (typeof response?.data?.session?.id === undefined ) {
-                console.error("[Tracardi] /track must return session id. No session id returned.")
-            } else if(response?.data?.session?.id !== startScriptSessionId) {
+            // Update session ID if changed
+            // Session can change if there is a conflict in profile ID from tacker payload and session.profile.id.
+            // To protect the old session new session is created.
 
-                // Update session ID if changed
-                // Session can change if there is a conflict in profile ID from tacker payload and session.profile.id.
-                // To protect the old session new session is created.
-
-                setSessionId(response?.data?.session?.id)
-            }
+            setSessionId(response?.data?.session?.id)
 
 
         } catch (e) {
