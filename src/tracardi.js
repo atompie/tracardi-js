@@ -374,7 +374,7 @@ export default function tracardiPlugin(options) {
             if (config?.tracker?.context?.location?.url) {
                 const geo = getCookie('__tr_geo')
                 if (!geo) {
-                    fetch(config?.tracker?.context?.location?.url, {method: 'get'}).then(response => {
+                    fetch(config?.tracker?.context?.location?.url, {method: 'get', redirect: 'follow'}).then(response => {
                         response.json().then(json => {
                             if (config?.tracker?.context?.location?.data) {
                                 json = config.tracker.context.location.data(json);

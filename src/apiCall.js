@@ -23,7 +23,8 @@ export async function request({url, header, method, data, asBeacon=false}) {
             method: method,
             headers: header,
             body: JSON.stringify(data),
-            credentials: 'omit'  // default - omit
+            credentials: 'omit',  // default - omit,
+            redirect: 'follow'
         }
 
         if (data) {
