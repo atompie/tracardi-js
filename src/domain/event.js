@@ -10,13 +10,46 @@ import {getProfileId, getSessionId} from "../utils/storage";
 const clientInfo = ClientInfo()
 const deviceIdKey = 'tracardi-device-id';
 
+function extractJSONLD() {
+    // Select the script tag with type "application/ld+json"
+    const jsonLdScript = document.querySelector('script[type="application/ld+json"]');
+
+    if (jsonLdScript) {
+        // Parse the JSON content
+        const jsonData = JSON.parse(jsonLdScript.textContent);
+
+        return renameAtKeys(jsonData);
+    }
+
+    return null
+}
+
+function renameAtKeys(obj) {
+    if (Array.isArray(obj)) {
+        return obj.map(renameAtKeys);
+    } else if (obj !== null && typeof obj === 'object') {
+        return Object.keys(obj).reduce((acc, key) => {
+            const newKey = key.startsWith('@') ? key.slice(1) : key;
+            acc[newKey] = renameAtKeys(obj[key]);
+            return acc;
+        }, {});
+    }
+    return obj;
+}
+
 export function getEventContext(context, payload = null) {
 
+    const ld = extractJSONLD()
     let eventContext = {}
     if (context?.page === true) {
         eventContext = {
             page: clientInfo.page()
         }
+        if(ld) {
+            eventContext.page.ld =ld
+        }
+    } else if(ld) {
+        eventContext.page = {ld: ld}
     }
 
     if (!isEmptyObjectOrNull(payload?.options?.context)) {

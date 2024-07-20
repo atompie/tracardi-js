@@ -5,6 +5,18 @@
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
     <meta content="utf-8" http-equiv="encoding">
     <meta name="topics" content="topic1,topic2">
+    <script type="application/ld+json" id="structured-data">
+        {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Example Company",
+            "url": "http://www.example.com",
+            "sameAs": [
+                "http://www.facebook.com/example",
+                "http://www.twitter.com/example"
+            ]
+        }
+    </script>
     <link rel="stylesheet" href="index.css">
     <!--    <link rel=”preload” href=”dist/liliput.min.js” as=”script”>-->
     <script>
@@ -121,7 +133,7 @@
             tracker: {
                 url: {
                     script: 'dist/liliput.min.js',
-                    api: 'http://localhost:8686'
+                    api: 'http://track.tracardi.com'
                 },
                 source: {
                     id: "demo-website"
