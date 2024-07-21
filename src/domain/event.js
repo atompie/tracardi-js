@@ -15,10 +15,14 @@ function extractJSONLD() {
     const jsonLdScript = document.querySelector('script[type="application/ld+json"]');
 
     if (jsonLdScript) {
-        // Parse the JSON content
-        const jsonData = JSON.parse(jsonLdScript.textContent);
 
-        return renameAtKeys(jsonData);
+        try {
+            // Parse the JSON content
+            const jsonData = JSON.parse(jsonLdScript.textContent);
+            return renameAtKeys(jsonData);
+        } catch (e) {
+            return null
+        }
     }
 
     return null

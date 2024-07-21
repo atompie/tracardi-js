@@ -346,7 +346,8 @@ export default function tracardiPlugin(options) {
                     storage: false,
                     screen: true,
                     page: true,
-                    browser: true
+                    browser: true,
+                    utm: true
                 }
             }
 
