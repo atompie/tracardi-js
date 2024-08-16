@@ -70,9 +70,12 @@ export default function ClientInfo() {
     return {
 
         time: () => {
+            const now = new Date();
+            const nowMetadata = Intl.DateTimeFormat().resolvedOptions()
             return {
-                local: toUTCISOStringWithMilliseconds(new Date()),
-                tz: Intl.DateTimeFormat().resolvedOptions().timeZone
+                local: toUTCISOStringWithMilliseconds(now),
+                tz: nowMetadata.timeZone,
+                offset: now.getTimezoneOffset()
             }
         },
 
