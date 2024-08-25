@@ -20,7 +20,7 @@ function mergeObjects(objects) {
     const mergedObjects = [];
 
     objects.forEach(obj => {
-        const existingObject = mergedObjects.find(item => item.type === obj.type && item.content === obj.content);
+        const existingObject = mergedObjects.find(item => item.content.toLowerCase() === obj.content.toLowerCase());
 
         if (existingObject) {
             // Merge the durations
@@ -82,25 +82,32 @@ class DataSender {
         if (this.pendingPayload.length > 0) {
 
             const mergedPayload = mergeObjects(this.pendingPayload);
+            const filteredList = mergedPayload.filter(item => item.duration >= 1000);
 
-            const payload = {
-                url: window.location.href,
-                elements: mergedPayload
-            };
-            console.log(payload);
-            // const data = JSON.stringify(payload);
+            filteredList.sort((a, b) => b.duration - a.duration);
 
-            // if (isBeacon && navigator.sendBeacon) {
-            //     navigator.sendBeacon(this.sendUrl, data);
-            // } else {
-            //     fetch(this.sendUrl, {
-            //         method: 'POST',
-            //         headers: {
-            //             'Content-Type': 'application/json',
-            //         },
-            //         body: data,
-            //     }).catch(error => console.error('Error sending data:', error));
-            // }
+            if(filteredList.length > 0) {
+                const payload = {
+                    url: window.location.href,
+                    elements: filteredList
+                };
+
+                console.log(payload);
+                // const data = JSON.stringify(payload);
+
+                // if (isBeacon && navigator.sendBeacon) {
+                //     navigator.sendBeacon(this.sendUrl, data);
+                // } else {
+                //     fetch(this.sendUrl, {
+                //         method: 'POST',
+                //         headers: {
+                //             'Content-Type': 'application/json',
+                //         },
+                //         body: data,
+                //     }).catch(error => console.error('Error sending data:', error));
+                // }
+            }
+
             this.pendingPayload = [];
         }
     }
@@ -143,13 +150,8 @@ class ActivityTracker {
     trackTabChange() {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                console.log('User has switched away from the tab.');
                 this.sendAllData();
                 this.dataSender.flushData();
-                // Run any code when the user leaves the tab
-            } else if (document.visibilityState === 'visible') {
-                console.log('User has returned to the tab.');
-                // Run any code when the user returns to the tab
             }
         });
     }
@@ -164,11 +166,11 @@ class ActivityTracker {
                     if (entry.isIntersecting && !elementData) {
                         elementData = this.createElementData(element);
                         if(elementData.content) {
-                            console.log("visible", elementData)
+                            // console.log("visible", elementData)
                             this.trackedElements.set(element, elementData);
                         }
                     } else if (!entry.isIntersecting && elementData) {
-                        console.log("not visible", elementData)
+                        // console.log("not visible", elementData)
                         this.addDataToSend(elementData);
                         this.collectData();
                         this.trackedElements.delete(element);
@@ -253,10 +255,12 @@ class ActivityTracker {
         else if (tag === 'pre') type = 'quote';
         else if (tag === 'li') type = 'bullet';
 
+        const content = element.tagName.toLowerCase() === 'img' ? element.alt : element.textContent.trim();
+
         return {
             type,
             tag: tag,
-            content: element.tagName.toLowerCase() === 'img' ? element.alt : element.textContent.trim(),
+            content: content.replace(/\s+/g, ' ').trim(),
             startTime: Date.now(),
             mouseOverDuration: 0,
             mouseOverStartTime: null,
