@@ -1,3 +1,21 @@
+const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th']
+
+function findAllowedParent(element) {
+
+    // Ensure that 'element' is an Element, if it starts as a text node
+    if (element.nodeType !== Node.ELEMENT_NODE) {
+        element = element.parentNode;
+    }
+
+    // Traverse up the DOM tree until an allowed element is found or until no more parent nodes
+    while (element && !allowedTags.includes(element.tagName.toLowerCase())) {
+        element = element.parentNode;
+    }
+
+    // Return the found element if it's allowed, otherwise null
+    return (element && allowedTags.includes(element.tagName.toLowerCase())) ? element : null;
+}
+
 function mergeObjects(objects) {
     const mergedObjects = [];
 
@@ -7,6 +25,7 @@ function mergeObjects(objects) {
         if (existingObject) {
             // Merge the durations
             existingObject.duration += obj.duration;
+            existingObject.clickCount += obj.clickCount;
             existingObject.mouseOverDuration += obj.mouseOverDuration;
 
             // Append the selectedText to the list of strings
@@ -22,36 +41,19 @@ function mergeObjects(objects) {
             // If no existing object is found, push a copy of the object to the mergedObjects array
             mergedObjects.push({
                 type: obj.type,
+                tag: obj.tag,
                 content: obj.content,
                 duration: obj.duration,
                 mouseOverDuration: obj.mouseOverDuration,
-                selectedText: [obj.selectedText],
-                duplicateCount: 1 // Initialize duplicate count to 1
+                selectedText: obj.selectedText ? [obj.selectedText] : [],
+                duplicateCount: 1,
+                clickCount: 0
             });
         }
     });
 
     return mergedObjects;
 }
-
-// Example usage:
-const objects = [
-    {
-        type: "text",
-        content: 'window.response.context.profile = true;\n    window.tracker.track("purchase-order", {"product": "Sun glasses - Badoo", "price": 13.45})\n    window.tracker.track("interest", {"Vacation": 1})\n    window.tracker.track("page-view", {"basket": 1});',
-        duration: 2087,
-        mouseOverDuration: 88,
-        selectedText: "This is an example of code that shows white box below i"
-    },
-    {
-        type: "text",
-        content: 'window.response.context.profile = true;\n    window.tracker.track("purchase-order", {"product": "Sun glasses - Badoo", "price": 13.45})\n    window.tracker.track("interest", {"Vacation": 1})\n    window.tracker.track("page-view", {"basket": 1});',
-        duration: 1500,
-        mouseOverDuration: 50,
-        selectedText: "Another selected text example"
-    }
-];
-
 
 class DataSender {
     constructor(sendUrl) {
@@ -67,7 +69,7 @@ class DataSender {
         } else {
             this.pendingPayload.push(element);
         }
-        console.log(Array.isArray(element), this.pendingPayload)
+
         if (!this.timer) {
             this.timer = setTimeout(() => {
                 this.sendData();
@@ -123,16 +125,33 @@ class ActivityTracker {
         } else {
             this.setupTracking();
         }
-        window.addEventListener('beforeunload', () => {
-            this.sendAllData(true);
+        window.addEventListener('beforeunload', (e) => {
+            this.sendAllData();
             this.dataSender.flushData();
+            e.returnValue = 'Are you sure you want to leave?';
+            return 'Are you sure you want to leave?';
         });
     }
 
     setupTracking() {
         this.observeVisibility();
+        this.trackTabChange();
         this.trackMouseOver();
         this.trackTextSelection();
+    }
+
+    trackTabChange() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                console.log('User has switched away from the tab.');
+                this.sendAllData();
+                this.dataSender.flushData();
+                // Run any code when the user leaves the tab
+            } else if (document.visibilityState === 'visible') {
+                console.log('User has returned to the tab.');
+                // Run any code when the user returns to the tab
+            }
+        });
     }
 
     observeVisibility() {
@@ -145,16 +164,18 @@ class ActivityTracker {
                     if (entry.isIntersecting && !elementData) {
                         elementData = this.createElementData(element);
                         if(elementData.content) {
+                            console.log("visible", elementData)
                             this.trackedElements.set(element, elementData);
                         }
                     } else if (!entry.isIntersecting && elementData) {
-                        this.addDataToSend(element, elementData);
+                        console.log("not visible", elementData)
+                        this.addDataToSend(elementData);
                         this.collectData();
                         this.trackedElements.delete(element);
                     }
                 });
             },
-            {threshold: 0.5}
+            {threshold: 0.6}
         );
 
         this.getTrackableElements().forEach((element) => {
@@ -169,6 +190,8 @@ class ActivityTracker {
             const elementData = this.trackedElements.get(element);
             if (elementData && !elementData.clickCount) {
                 elementData.clickCount = 1;
+            } else {
+                elementData.clickCount++;
             }
         });
 
@@ -187,21 +210,31 @@ class ActivityTracker {
                 elementData.mouseOverDuration += Date.now() - elementData.mouseOverStartTime;
                 elementData.mouseOverStartTime = null;
             }
+
         });
     }
 
     trackTextSelection() {
         document.addEventListener('selectionchange', () => {
             const selection = window.getSelection();
+
             if (selection.rangeCount > 0) {
                 const range = selection.getRangeAt(0);
+
                 const selectedText = range.toString().trim();
+
                 if (selectedText) {
-                    const element = range.commonAncestorContainer.parentElement;
-                    const elementData = this.trackedElements.get(element);
-                    if (elementData) {
-                        elementData.selectedText = selectedText;
+                    const initialElement = range.commonAncestorContainer;
+
+                    const element = findAllowedParent(initialElement);
+
+                    if(element) {
+                        const elementData = this.trackedElements.get(element);
+                        if (elementData) {
+                            elementData.selectedText = selectedText;
+                        }
                     }
+
                 }
             }
         });
@@ -217,21 +250,34 @@ class ActivityTracker {
         if (tag === 'img') type = 'image';
         else if (tag === 'a') type = 'link';
         else if (tag === 'h1') type = 'header';
-        else if (tag === 'pre') type = 'code';
+        else if (tag === 'pre') type = 'quote';
         else if (tag === 'li') type = 'bullet';
 
         return {
             type,
             tag: tag,
-            content: element.tagName === 'IMG' ? element.alt : element.textContent.trim(),
+            content: element.tagName.toLowerCase() === 'img' ? element.alt : element.textContent.trim(),
             startTime: Date.now(),
             mouseOverDuration: 0,
             mouseOverStartTime: null,
-            selectedText: null
+            selectedText: null,
+            clickCount: 0
         };
     }
 
-    addDataToSend(element, elementData) {
+    appendElement(elementData, duration) {
+        this.dataToSend.push({
+            tag: elementData.tag,
+            type: elementData.type,
+            content: elementData.content,
+            clickCount: elementData.clickCount,
+            duration: duration,
+            mouseOverDuration: elementData.mouseOverDuration,
+            selectedText: elementData.selectedText
+        });
+    }
+
+    addDataToSend(elementData) {
         const currentTime = Date.now();
         const duration = currentTime - elementData.startTime;
 
@@ -239,39 +285,29 @@ class ActivityTracker {
             elementData.mouseOverDuration += currentTime - elementData.mouseOverStartTime;
         }
 
-        this.dataToSend.push({
-            tag: elementData.tag,
-            type: elementData.type,
-            content: elementData.content,
-            duration: duration,
-            mouseOverDuration: elementData.mouseOverDuration,
-            selectedText: elementData.selectedText
-        });
+        this.appendElement(elementData, duration);
     }
 
-    sendAllData(isBeacon = false) {
-        const currentTime = Date.now();
-        this.trackedElements.forEach((elementData, element) => {
-            const duration = currentTime - elementData.startTime;
+    sendAllData() {
+        if (this.trackedElements.size > 0) {
+            const currentTime = Date.now();
+            this.trackedElements.forEach((elementData, element) => {
+                const duration = currentTime - elementData.startTime;
 
-            if (elementData.mouseOverStartTime) {
-                elementData.mouseOverDuration += currentTime - elementData.mouseOverStartTime;
-            }
-
-            this.dataToSend.push({
-                type: elementData.type,
-                content: elementData.content,
-                duration: duration,
-                mouseOverDuration: elementData.mouseOverDuration,
-                selectedText: elementData.selectedText
+                if (elementData.mouseOverStartTime) {
+                    elementData.mouseOverDuration += currentTime - elementData.mouseOverStartTime;
+                }
+                this.appendElement(elementData, duration);
             });
-        });
 
-        this.dataSender.collectData(this.dataToSend);
-        this.dataSender.sendData(true);
+            this.dataSender.collectData(this.dataToSend);
+            this.dataSender.sendData(true);
+            this.trackedElements.clear()
+        }
+
     }
 
-    collectData(isBeacon = false) {
+    collectData() {
         this.dataSender.collectData(this.dataToSend);
         this.dataToSend = [];
     }
