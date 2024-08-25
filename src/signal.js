@@ -84,7 +84,14 @@ class DataSender {
             const mergedPayload = mergeObjects(this.pendingPayload);
             const filteredList = mergedPayload.filter(item => item.duration >= 1000);
 
-            filteredList.sort((a, b) => b.duration - a.duration);
+            filteredList.sort((a, b) => {
+                // Primary sorting by mouseOverDuration
+                if (a.mouseOverDuration !== b.mouseOverDuration) {
+                    return a.mouseOverDuration - b.mouseOverDuration;
+                }
+                // Secondary sorting by duration
+                return a.duration - b.duration;
+            });
 
             if(filteredList.length > 0) {
                 const payload = {
