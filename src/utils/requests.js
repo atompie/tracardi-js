@@ -56,7 +56,6 @@ export function trackExternalLinks(domains, profileId, sourceId) {
                 const linkDomain = parsedUrl.hostname;
 
                 for (const allowedDomain of domains) {
-                    console.log(link, allowedDomain, linkDomain.endsWith(allowedDomain))
                     if (linkDomain.endsWith(allowedDomain)) {
                         console.debug(`[Tracardi] Patched Link: ${link.href}`)
                         const parameter = `__tr_pid=${profileId.trim()}&__tr_src=${sourceId.trim()}`;
