@@ -79,6 +79,7 @@ export async function getEventPayload(payload, config) {
         profile: getProfileId(config),
         context: {
             time: clientInfo.time(),
+            referer: clientInfo.referer()
         },
         properties: payload.properties,
     }

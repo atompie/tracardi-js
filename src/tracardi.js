@@ -194,7 +194,7 @@ export default function tracardiPlugin(options) {
 
             const payload = trackEventList.get(config)
 
-            console.debug("[Tracardi] Collected page event sent:", payload)
+            console.debug("[Tracardi] Collected events payload:", payload)
 
             response = await sendTrackPayload(
                 {

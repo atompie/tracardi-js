@@ -138,6 +138,10 @@ export default function ClientInfo() {
                     cookies1: document.cookie,
                     cookies2: decodeURIComponent(document.cookie.split(";")),
             }
+        },
+
+        referer: () => {
+            return getReferer()
         }
     }
 }
