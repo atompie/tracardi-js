@@ -1,4 +1,6 @@
 import {getCookie, hasCookiesEnabled} from './cookies';
+import {getItem} from "@analytics/storage-utils";
+import {fnv1aHash} from './utils/hash';
 const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th']
 const profileName = "tracardi-profile-id"
 const sessionName = "tracardi-session-id"
@@ -141,9 +143,13 @@ class DataSender {
             }
         }
 
-        trackerPayload.events = payload.elements.map(element => ({
-            type: "content-signal",
-            properties: element,
+        trackerPayload.events = payload.elements.map(element => (
+            {
+            type: "content-viewed",
+            properties: {
+                ...element,
+                id: fnv1aHash(element.type, element.tag, element.content)
+            },
             tags: ["event:signal"],
             context: {
                 page: {
@@ -247,7 +253,7 @@ class ActivityTracker {
         const sessionId = getCookie(sessionName);
 
         // Retrieve profile ID from local storage
-        const profileId = localStorage.getItem(profileName);
+        const profileId = getItem(profileName);
 
         this.dataSender.setApiUrl(this.api)
         this.dataSender.setSourceId(this.token)
@@ -269,6 +275,7 @@ class ActivityTracker {
     trackTabChange() {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
+                console.log('tabCHanged')
                 this.sendAllData();
                 this.dataSender.flushData();
             }
@@ -278,6 +285,7 @@ class ActivityTracker {
     observeVisibility() {
         const observer = new IntersectionObserver(
             (entries) => {
+                console.log(entries)
                 entries.forEach((entry) => {
                     const element = entry.target;
                     let elementData = this.trackedElements.get(element);
@@ -296,7 +304,7 @@ class ActivityTracker {
                     }
                 });
             },
-            {threshold: 0.6}
+            {threshold: .8}  // Trigger when 80% of item is visible
         );
 
         this.getTrackableElements().forEach((element) => {
