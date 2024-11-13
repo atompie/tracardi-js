@@ -1,4 +1,4 @@
-import {getCookie, setCookie, hasCookiesEnabled} from './cookies';
+import {getCookie, hasCookiesEnabled} from './cookies';
 const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th']
 const profileName = "tracardi-profile-id"
 const sessionName = "tracardi-session-id"
@@ -119,23 +119,7 @@ class DataSender {
             context: {
                 // Context data
             },
-            events: [
-                {
-                    type: "event-type",
-                    properties: {
-                        // Event properties
-                    },
-                    options: {
-                        // Event options
-                    },
-                    context: {
-                        page: {
-                            url: "",
-                            title: ""
-                        }
-                    }
-                }
-            ],
+            events: [],
             options: {}
         }
 
