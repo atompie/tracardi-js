@@ -1,4 +1,7 @@
+import {getCookie, setCookie, hasCookiesEnabled} from './cookies';
 const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th']
+const profileName = "tracardi-profile-id"
+const sessionName = "tracardi-session-id"
 
 function findAllowedParent(element) {
 
@@ -61,6 +64,32 @@ class DataSender {
         this.dataToSend = [];
         this.pendingPayload = [];
         this.timer = null;
+
+        this.profileId = null;
+        this.sessionId = null;
+        this.apiUrl = null;
+        this.sourceId = null
+        this.deviceId = null
+    }
+
+    setProfileId(profileId) {
+        this.profileId = profileId;
+        console.log(`ProfileId set to: ${this.profileId}`);
+    }
+
+    setSessionId(sessionId) {
+        this.sessionId = sessionId;
+        console.log(`SessionId set to: ${this.sessionId}`);
+    }
+
+    setSourceId(sourceId) {
+        this.sourceId = sourceId;
+        console.log(`sourceId set to: ${this.sourceId}`);
+    }
+
+    setApiUrl(apiUrl) {
+        this.apiUrl = apiUrl;
+        console.log(`ApiUrl set to: ${this.apiUrl}`);
     }
 
     collectData(element) {
@@ -75,6 +104,88 @@ class DataSender {
                 this.sendData();
                 this.timer = null;
             }, 1000); // Wait for 1 second before sending
+        }
+    }
+
+    pushData(payload, isBeacon = false) {
+
+        if (!this.apiUrl || !this.sourceId || (this.profileId === null && this.sessionId === null)) {
+            console.warn("No proper configuration.")
+        }
+        let trackerPayload = {
+            source: {
+                id: this.sourceId
+            },
+            context: {
+                // Context data
+            },
+            events: [
+                {
+                    type: "event-type",
+                    properties: {
+                        // Event properties
+                    },
+                    options: {
+                        // Event options
+                    },
+                    context: {
+                        page: {
+                            url: "",
+                            title: ""
+                        }
+                    }
+                }
+            ],
+            options: {}
+        }
+
+        if (this.sessionId) {
+            trackerPayload['session'] =  {
+                id: this.sessionId
+            }
+        }
+
+        if (this.profileId) {
+            trackerPayload['profile'] =  {
+                id: this.profileId
+            }
+        }
+
+        if (this.deviceId) {
+            trackerPayload['device'] =  {
+                id: this.deviceId
+            }
+        }
+
+        trackerPayload.events = payload.elements.map(element => ({
+            type: "content-signal",
+            properties: element,
+            tags: ["event:signal"],
+            context: {
+                page: {
+                    url: payload.url,
+                    title: document.title
+                }
+            },
+            options: {
+                async: true
+            }
+        }));
+
+        console.log(trackerPayload)
+        console.log(payload)
+        const data = JSON.stringify(trackerPayload);
+
+        if (isBeacon && navigator.sendBeacon) {
+            navigator.sendBeacon(this.apiUrl, data);
+        } else {
+            fetch(this.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: data,
+            }).catch(error => console.error('Error sending data:', error));
         }
     }
 
@@ -99,20 +210,8 @@ class DataSender {
                     elements: filteredList
                 };
 
-                console.log(payload);
-                // const data = JSON.stringify(payload);
+                this.pushData(payload, isBeacon);
 
-                // if (isBeacon && navigator.sendBeacon) {
-                //     navigator.sendBeacon(this.sendUrl, data);
-                // } else {
-                //     fetch(this.sendUrl, {
-                //         method: 'POST',
-                //         headers: {
-                //             'Content-Type': 'application/json',
-                //         },
-                //         body: data,
-                //     }).catch(error => console.error('Error sending data:', error));
-                // }
             }
 
             this.pendingPayload = [];
@@ -130,7 +229,19 @@ class ActivityTracker {
         this.dataSender = new DataSender(sendUrl);
         this.trackedElements = new Map();
         this.dataToSend = [];
+
+        const scriptTag = document.querySelector('script[data-id="tracardi-signal"]');
+
+        if(scriptTag) {
+            this.api = scriptTag.getAttribute('data-signal-api');
+            this.token = scriptTag.getAttribute('data-signal-token');
+        } else {
+            this.api = null
+            this.token = null
+        }
         this.init();
+
+
     }
 
     init() {
@@ -148,6 +259,23 @@ class ActivityTracker {
     }
 
     setupTracking() {
+        // Retrieve session ID using the getCookie helper function
+        const sessionId = getCookie(sessionName);
+
+        // Retrieve profile ID from local storage
+        const profileId = localStorage.getItem(profileName);
+
+        this.dataSender.setApiUrl(this.api)
+        this.dataSender.setSourceId(this.token)
+
+        // Set session ID and profile ID if they exist
+        if (sessionId) {
+            this.dataSender.setSessionId(sessionId);
+        }
+        if (profileId) {
+            this.dataSender.setProfileId(profileId);
+        }
+
         this.observeVisibility();
         this.trackTabChange();
         this.trackMouseOver();

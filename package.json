@@ -22,11 +22,17 @@
     "yarn": "^1.22.17"
   },
   "scripts": {
+    "build-signal": "yarn signal:browserify && yarn signal:minify",
     "build": "yarn tracker:browserify && yarn tracker:minify && yarn loader:browserify && yarn loader:minify ",
     "tracker:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/index.js -s tracardi -o dist/liliput.js",
     "tracker:minify": "cd dist && uglifyjs -c -m -o liliput.min.js --source-map url=liliput.min.js.map -- liliput.js",
+
     "loader:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/loader.js -s tracardi -o dist/loader.js",
     "loader:minify": "cd dist && uglifyjs -c -m -o loader.min.js --source-map url=loader.min.js.map -- loader.js",
+
+    "signal:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/signal.js -s tracardi -o dist/signal.js",
+    "signal:minify": "cd dist && uglifyjs -c -m -o signal.min.js --source-map url=signal.min.js.map -- signal.js",
+
     "clean": "rimraf *.log dist/*",
     "clean:all": "yarn clean && rimraf node_modules"
   }

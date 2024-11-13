@@ -6,13 +6,15 @@
     <meta content="utf-8" http-equiv="encoding">
     <meta name="topics" content="topic1,topic2">
     <link rel="stylesheet" href="index.css">
-    <script src="src/signal.js"></script>
+<!--    <script id="signal-config" data-setting1="value1" data-setting2="value2"></script>-->
+    <script src="dist/signal.min.js" data-signal-api="http://localhost:8686/track" data-signal-token="locust-test" data-id="tracardi-signal"></script>
 
 </head>
 <body>
 <h1 data-tracardi-tag="title">
     <BOLD>TRACARDI</BOLD>
     <THIN>JavaScript Integration Test Page</THIN>
+
 </h1>
 <section>
     <p>This page load TRACARDI Javascript to show case how it can be utilized to collect user data.</p>
