@@ -61,8 +61,7 @@ function mergeObjects(objects) {
 }
 
 class DataSender {
-    constructor(sendUrl) {
-        this.sendUrl = sendUrl;
+    constructor() {
         this.dataToSend = [];
         this.pendingPayload = [];
         this.timer = null;
@@ -100,10 +99,10 @@ class DataSender {
         } else {
             this.pendingPayload.push(element);
         }
-
+        console.log(("pending", this.pendingPayload))
         if (!this.timer) {
             this.timer = setTimeout(() => {
-                this.sendData();
+                this.sendData(false);
                 this.timer = null;
             }, 1000); // Wait for 1 second before sending
         }
@@ -112,7 +111,8 @@ class DataSender {
     pushData(payload, isBeacon = false) {
 
         if (!this.apiUrl || !this.sourceId || (this.profileId === null && this.sessionId === null)) {
-            console.warn("No proper configuration.")
+            console.warn("No proper configuration.");
+            return; // Exit early if configuration is invalid
         }
         let trackerPayload = {
             source: {
@@ -123,28 +123,27 @@ class DataSender {
             },
             events: [],
             options: {}
-        }
+        };
 
         if (this.sessionId) {
-            trackerPayload['session'] =  {
+            trackerPayload['session'] = {
                 id: this.sessionId
-            }
+            };
         }
 
         if (this.profileId) {
-            trackerPayload['profile'] =  {
+            trackerPayload['profile'] = {
                 id: this.profileId
-            }
+            };
         }
 
         if (this.deviceId) {
-            trackerPayload['device'] =  {
+            trackerPayload['device'] = {
                 id: this.deviceId
-            }
+            };
         }
 
-        trackerPayload.events = payload.elements.map(element => (
-            {
+        trackerPayload.events = payload.elements.map(element => ({
             type: "content-viewed",
             properties: {
                 ...element,
@@ -162,22 +161,41 @@ class DataSender {
             }
         }));
 
-        console.log(trackerPayload)
-        console.log(payload)
-        const data = JSON.stringify(trackerPayload);
-
         if (isBeacon && navigator.sendBeacon) {
-            navigator.sendBeacon(this.apiUrl, data);
+            console.debug("Data pushed by beacon")
+            const blob = new Blob([JSON.stringify(trackerPayload)], {type : 'application/json'});
+            const success = navigator.sendBeacon(this.apiUrl, blob);
+            if (!success) {
+                console.error("Failed to send data via Beacon API.");
+            } else {
+                // Clear pending payload only if beacon sending is successful
+                this.pendingPayload = [];
+            }
         } else {
+            console.debug("Data pushed by fetch")
+            const data = JSON.stringify(trackerPayload);
             fetch(this.apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: data,
-            }).catch(error => console.error('Error sending data:', error));
+            })
+                .then(response => {
+                    if (response.ok) {
+                        // Only clear pendingPayload if data was sent successfully
+                        this.pendingPayload = [];
+                    } else {
+                        console.error("Error sending data:", response.statusText);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error sending data:", error);
+                    // Log an error without clearing pendingPayload
+                });
         }
     }
+
 
     sendData(isBeacon = false) {
         if (this.pendingPayload.length > 0) {
@@ -194,19 +212,18 @@ class DataSender {
                 return a.duration - b.duration;
             });
 
-            if(filteredList.length > 0) {
+            if (filteredList.length > 0) {
                 const payload = {
                     url: window.location.href,
                     elements: filteredList
                 };
 
+                // Call pushData and rely on its success to clear pendingPayload
                 this.pushData(payload, isBeacon);
-
             }
-
-            this.pendingPayload = [];
         }
     }
+
 
     flushData() {
         this.sendData(true);
@@ -215,8 +232,8 @@ class DataSender {
 
 
 class ActivityTracker {
-    constructor(sendUrl) {
-        this.dataSender = new DataSender(sendUrl);
+    constructor() {
+        this.dataSender = new DataSender();
         this.trackedElements = new Map();
         this.dataToSend = [];
 
@@ -275,9 +292,13 @@ class ActivityTracker {
     trackTabChange() {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                console.log('tabCHanged')
+                console.debug("Tab hidden")
                 this.sendAllData();
                 this.dataSender.flushData();
+            } else if (document.visibilityState === 'visible') {
+                // Reinitialize tracking when the tab becomes visible again
+                this.observeVisibility();
+                console.debug("Tab visible")
             }
         });
     }
@@ -410,6 +431,7 @@ class ActivityTracker {
 
     addDataToSend(elementData) {
         const currentTime = Date.now();
+        console.debug("starttime", elementData.startTime)
         const duration = currentTime - elementData.startTime;
 
         if (elementData.mouseOverStartTime) {
@@ -420,8 +442,11 @@ class ActivityTracker {
     }
 
     sendAllData() {
+        console.debug("Elements to send", this.trackedElements.size)
         if (this.trackedElements.size > 0) {
             const currentTime = Date.now();
+
+            // Collect data without clearing trackedElements
             this.trackedElements.forEach((elementData, element) => {
                 const duration = currentTime - elementData.startTime;
 
@@ -431,12 +456,22 @@ class ActivityTracker {
                 this.appendElement(elementData, duration);
             });
 
+            // Add collected data to pendingPayload
             this.dataSender.collectData(this.dataToSend);
-            this.dataSender.sendData(true);
-            this.trackedElements.clear()
-        }
 
+            // Try sending the data and only clear if sending succeeds
+            this.dataSender.sendData(true); // true for isBeacon
+
+            // Clear dataToSend after collecting
+            this.dataToSend = [];
+
+            // Clear trackedElements only if data was successfully sent
+            if (this.dataSender.pendingPayload.length === 0) {
+                this.trackedElements.clear();
+            }
+        }
     }
+
 
     collectData() {
         this.dataSender.collectData(this.dataToSend);
