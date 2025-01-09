@@ -1,7 +1,7 @@
 import {getCookie, hasCookiesEnabled} from './cookies';
 import {getItem} from "@analytics/storage-utils";
 import {fnv1aHash} from './utils/hash';
-const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th']
+const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th', 'button', 'thin']
 const profileName = "tracardi-profile-id"
 const sessionName = "tracardi-session-id"
 
@@ -99,7 +99,7 @@ class DataSender {
         } else {
             this.pendingPayload.push(element);
         }
-        console.log(("pending", this.pendingPayload))
+
         if (!this.timer) {
             this.timer = setTimeout(() => {
                 this.sendData(false);
@@ -130,7 +130,7 @@ class DataSender {
                 id: this.sessionId
             };
         }
-
+        console.log(this.profileId)
         if (this.profileId) {
             trackerPayload['profile'] = {
                 id: this.profileId
@@ -173,6 +173,7 @@ class DataSender {
             }
         } else {
             console.debug("Data pushed by fetch")
+            console.warn(trackerPayload)
             const data = JSON.stringify(trackerPayload);
             fetch(this.apiUrl, {
                 method: 'POST',
@@ -306,7 +307,7 @@ class ActivityTracker {
     observeVisibility() {
         const observer = new IntersectionObserver(
             (entries) => {
-                console.log(entries)
+                // console.log(entries)
                 entries.forEach((entry) => {
                     const element = entry.target;
                     let elementData = this.trackedElements.get(element);
@@ -336,13 +337,32 @@ class ActivityTracker {
     trackMouseOver() {
 
         document.body.addEventListener('click', (event) => {
+
             const element = event.target;
-            const elementData = this.trackedElements.get(element);
-            if (elementData && !elementData.clickCount) {
-                elementData.clickCount = 1;
-            } else {
-                elementData.clickCount++;
+
+            try {
+                console.log(this.trackedElements)
+                const elementData = this.trackedElements.get(element);
+                console.log(element, elementData)
+
+                // Clicked element is not tracked
+                if (!elementData) {
+                    let newElementData = this.createElementData(element);
+                    if (newElementData.content) {
+                        newElementData.clickCount = 1;
+                        this.trackedElements.set(element, newElementData);
+                    }
+                } else if (elementData?.clickCount) {
+                    elementData.clickCount++;
+                } else {
+
+                    elementData.clickCount = 1;
+                }
+
+            } catch (e) {
+                console.log(e)
             }
+
         });
 
         document.body.addEventListener('mouseover', (event) => {
@@ -391,7 +411,7 @@ class ActivityTracker {
     }
 
     getTrackableElements() {
-        return Array.from(document.querySelectorAll('p, a, div, img[alt], h1, h2, h3, h4, h5, h6, pre, span, li, td, th'));
+        return Array.from(document.querySelectorAll('p, a, div, img[alt], h1, h2, h3, h4, h5, h6, pre, span, li, td, th, button, thin'));
     }
 
     createElementData(element) {
@@ -431,7 +451,6 @@ class ActivityTracker {
 
     addDataToSend(elementData) {
         const currentTime = Date.now();
-        console.debug("starttime", elementData.startTime)
         const duration = currentTime - elementData.startTime;
 
         if (elementData.mouseOverStartTime) {
