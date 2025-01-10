@@ -1,4 +1,4 @@
-import {getCookie, hasCookiesEnabled} from './cookies';
+import {getCookie} from './cookies';
 import {getItem} from "@analytics/storage-utils";
 import {fnv1aHash} from './utils/hash';
 const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th', 'button', 'thin']
@@ -75,22 +75,21 @@ class DataSender {
 
     setProfileId(profileId) {
         this.profileId = profileId;
-        console.log(`ProfileId set to: ${this.profileId}`);
+        console.debug(`ProfileId set to: ${this.profileId}`);
     }
 
     setSessionId(sessionId) {
         this.sessionId = sessionId;
-        console.log(`SessionId set to: ${this.sessionId}`);
+        console.debug(`SessionId set to: ${this.sessionId}`);
     }
 
     setSourceId(sourceId) {
         this.sourceId = sourceId;
-        console.log(`sourceId set to: ${this.sourceId}`);
+        console.debug(`sourceId set to: ${this.sourceId}`);
     }
 
     setApiUrl(apiUrl) {
         this.apiUrl = apiUrl;
-        console.log(`ApiUrl set to: ${this.apiUrl}`);
     }
 
     collectData(element) {
@@ -130,7 +129,7 @@ class DataSender {
                 id: this.sessionId
             };
         }
-        console.log(this.profileId)
+
         if (this.profileId) {
             trackerPayload['profile'] = {
                 id: this.profileId
@@ -173,7 +172,6 @@ class DataSender {
             }
         } else {
             console.debug("Data pushed by fetch")
-            console.warn(trackerPayload)
             const data = JSON.stringify(trackerPayload);
             fetch(this.apiUrl, {
                 method: 'POST',
@@ -238,18 +236,17 @@ class ActivityTracker {
         this.trackedElements = new Map();
         this.dataToSend = [];
 
-        const scriptTag = document.querySelector('script[data-id="tracardi-signal"]');
+        const scriptTag = document.getElementById('tracardi-signal')
 
         if(scriptTag) {
             this.api = scriptTag.getAttribute('data-signal-api');
             this.token = scriptTag.getAttribute('data-signal-token');
         } else {
-            this.api = null
-            this.token = null
+            console.log("Script tag not found!"); // Debug line
+            this.api = null;
+            this.token = null;
         }
         this.init();
-
-
     }
 
     init() {
@@ -261,8 +258,6 @@ class ActivityTracker {
         window.addEventListener('beforeunload', (e) => {
             this.sendAllData();
             this.dataSender.flushData();
-            e.returnValue = 'Are you sure you want to leave?';
-            return 'Are you sure you want to leave?';
         });
     }
 
@@ -341,9 +336,7 @@ class ActivityTracker {
             const element = event.target;
 
             try {
-                console.log(this.trackedElements)
                 const elementData = this.trackedElements.get(element);
-                console.log(element, elementData)
 
                 // Clicked element is not tracked
                 if (!elementData) {
@@ -498,7 +491,8 @@ class ActivityTracker {
     }
 }
 
-// Usage
-document.addEventListener('DOMContentLoaded', () => {
-    const tracker = new ActivityTracker('https://your-server-url.com/collect-data');
-});
+function signals() {
+    new ActivityTracker();
+    console.log("[Tracardi Signals] Tracardi Signals loaded.")
+}
+document.addEventListener("DOMContentLoaded", signals, false);

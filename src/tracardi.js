@@ -43,7 +43,7 @@ export default function tracardiPlugin(options) {
         immediateTrackEventList.add(event.build(eventPayload), eventContext)
         const data = immediateTrackEventList.get(config)
 
-        console.debug("[Tracardi] Immediate /track requested:", data)
+        console.debug("[Tracardi] Immediate /track requested")
 
         const response = await sendTrackPayload(
             {
