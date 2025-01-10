@@ -1,6 +1,7 @@
 import {getCookie} from './cookies';
 import {getItem} from "@analytics/storage-utils";
 import {fnv1aHash} from './utils/hash';
+
 const allowedTags = ['p', 'a', 'div', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'span', 'li', 'td', 'th', 'button', 'thin']
 const profileName = "tracardi-profile-id"
 const sessionName = "tracardi-session-id"
@@ -162,7 +163,7 @@ class DataSender {
 
         if (isBeacon && navigator.sendBeacon) {
             console.debug("Data pushed by beacon")
-            const blob = new Blob([JSON.stringify(trackerPayload)], {type : 'application/json'});
+            const blob = new Blob([JSON.stringify(trackerPayload)], {type: 'application/json'});
             const success = navigator.sendBeacon(this.apiUrl, blob);
             if (!success) {
                 console.error("Failed to send data via Beacon API.");
@@ -237,16 +238,18 @@ class ActivityTracker {
         this.dataToSend = [];
 
         const scriptTag = document.getElementById('tracardi-signal')
-
-        if(scriptTag) {
+        console.log(1, scriptTag)
+        if (scriptTag) {
             this.api = scriptTag.getAttribute('data-signal-api');
             this.token = scriptTag.getAttribute('data-signal-token');
-        } else {
-            console.log("Script tag not found!"); // Debug line
-            this.api = null;
-            this.token = null;
+            this.init();
+        } else if (signalConfig) {
+            if (signalConfig.source?.id && signalConfig.url?.api) {
+                this.api = signalConfig.url?.api;
+                this.token = signalConfig.source?.id;
+                this.init();
+            }
         }
-        this.init();
     }
 
     init() {
@@ -259,6 +262,7 @@ class ActivityTracker {
             this.sendAllData();
             this.dataSender.flushData();
         });
+        console.log("[Tracardi Signals] Tracardi Signals loaded.")
     }
 
     setupTracking() {
@@ -299,22 +303,39 @@ class ActivityTracker {
         });
     }
 
+    extractTextContent(element, allowedTags) {
+        let elementContent = "";
+        element.childNodes.forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                elementContent += node.textContent.trim() + " ";
+            } else if (node.nodeType === Node.ELEMENT_NODE && allowedTags.includes(node.tagName.toLowerCase())) {
+                elementContent += self.extractTextContent(node, allowedTags) + " ";
+            }
+        });
+        return elementContent.trim();
+    }
+
     observeVisibility() {
         const observer = new IntersectionObserver(
             (entries) => {
                 // console.log(entries)
                 entries.forEach((entry) => {
                     const element = entry.target;
+
+                    if (!allowedTags.includes(element.tagName.toLowerCase())) {
+                        return;
+                    }
+
                     let elementData = this.trackedElements.get(element);
 
                     if (entry.isIntersecting && !elementData) {
                         elementData = this.createElementData(element);
-                        if(elementData.content) {
-                            // console.log("visible", elementData)
+                        if (elementData.content) {
+                            console.log("visible", elementData)
                             this.trackedElements.set(element, elementData);
                         }
                     } else if (!entry.isIntersecting && elementData) {
-                        // console.log("not visible", elementData)
+                        console.log("not visible", elementData)
                         this.addDataToSend(elementData);
                         this.collectData();
                         this.trackedElements.delete(element);
@@ -391,7 +412,7 @@ class ActivityTracker {
 
                     const element = findAllowedParent(initialElement);
 
-                    if(element) {
+                    if (element) {
                         const elementData = this.trackedElements.get(element);
                         if (elementData) {
                             elementData.selectedText = selectedText;
@@ -415,8 +436,15 @@ class ActivityTracker {
         else if (tag === 'h1') type = 'header';
         else if (tag === 'pre') type = 'quote';
         else if (tag === 'li') type = 'bullet';
+        else if (tag === 'button') type = 'button';
 
         const content = element.tagName.toLowerCase() === 'img' ? element.alt : element.textContent.trim();
+
+        // Check if the element has any child nodes
+        if (entry.children.length > 0) {
+            // If it has children, skip this element
+            return;
+        }
 
         return {
             type,
@@ -493,6 +521,6 @@ class ActivityTracker {
 
 function signals() {
     new ActivityTracker();
-    console.log("[Tracardi Signals] Tracardi Signals loaded.")
 }
+
 document.addEventListener("DOMContentLoaded", signals, false);

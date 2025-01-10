@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My title</title>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <meta name="topics" content="topic1,topic2">
+    <script type="application/ld+json" id="structured-data">
+        {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Example Company",
+            "url": "http://www.example.com",
+            "sameAs": [
+                "http://www.facebook.com/example",
+                "http://www.twitter.com/example"
+            ]
+        }
+    </script>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+<div></div>
+<h1 data-tracardi-tag="title">
+    <BOLD>TRACARDI</BOLD>
+    <THIN>JavaScript Integration Test Page</THIN>
+</h1>
+<section>
+    <p>This page load TRACARDI Javascript to show case how it can be utilized to collect user data.</p>
+</section>
+<pre style="display: none">
+const options = {
+      tracker: {
+        url: {
+            script: 'http://localhost:8686/tracker',
+            api: 'http://localhost:8686'
+        },
+        source: {
+            id: "7303142e-c0e1-45a4-8b1b-6e2f0381b141"
+         }
+    }
+}
+</pre>
+<button id="context">Test context bind</button>
+<button onClick="testClick()">Test on click</button>
+<a href="https://example.com/test">External patched link</a>
+<a href="https://abc.com">NOT External patched link</a>
+<h2>Events</h2>
+<section data-tracardi-tag="over">
+    <p>This is the example code that sends events to TRACARDI. Events pinpoint what happened on your web-site</p>
+    <pre>
+    window.response.context.profile = true;
+    window.tracker.track("purchase-order", {"product": "Sun glasses - Badoo", "price": 13.45})
+    window.tracker.track("interest", {"Vacation": 1})
+    window.tracker.track("page-view", {"basket": 1});
+    </pre>
+</section>
+<h2>TRACARDI response</h2>
+<section>
+    <p>TRACARDI will respond with information on user profile, session, and information on what was saved in the
+        system.</p>
+    <p>This information can be used to change your page on the fly with javascript.</p>
+    <pre id="response"></pre>
+</section>
+
+
+<h2>TRACARDI listeners</h2>
+<h3>onConsentRequired</h3>
+<section>
+    <p>TRACARDI can listen to the data that comes from the system and can react to it. For example if you did not
+        consent to data processing it can popup a message and ask for consent.</p>
+    <p>This is an example of code that shows white box below if consent is required.</p>
+    <pre>
+const options = {
+    listeners: {
+        onConsentRequired: () => {
+            const consentBox = document.getElementById('consentBox');
+            if (consentBox) {
+                consentBox.style.display = "block";
+            }
+        }
+    }
+}
+</pre>
+    <p>It is shown because TRACARDI returned that this information source requires user consent. See response from
+        TRACARDI above.</p>
+    <p>Once you click one of the buttons it will never appear again. </p>
+
+    <div id="consentBox" class="consent">
+        <div class="consent-content">
+            We are using cookies to collect anonymous data.
+            <button id="consent-all">Allow all</button>
+            <button id="block-all">Black all</button>
+        </div>
+    </div>
+</section>
+<h3>onContextReady</h3>
+<section>
+    <p>You can listen and react when the page is rady and TRACARDI returns user context information.
+        Than you can bind new tracking to any given element on page or change the page depending on the data tracardi
+        returned.
+    </p>
+
+    <p>Click on button below to sent new event to TRACARDI. </p>
+
+    <div>
+        <BUTTON id="custom-click-event">NEW EVENT</BUTTON>
+        <BUTTON id="page-view-event">PAGE-VIEW EVENT ONMOUSEOVER</BUTTON>
+    </div>
+
+    <pre id="response-to-custom-event" style="display: none"></pre>
+</section>
+<img src="https://tracardi.com/wp-content/uploads/2021/12/tracardi-icon-2-150x150.png" width="100" alt="Tracardi logo" height="100" data-tracardi-tag="product"/>
+<script src="contentTree.js">
+
+</script>
+</body>
+</html>
