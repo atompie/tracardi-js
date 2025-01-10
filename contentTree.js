@@ -4,7 +4,7 @@
  * For example, 'DIV' allows 'A' and 'P', but not the other way around.
  */
 
-const CONTENT_TAGS = ["DIV", "UL", "SECTION", "P", "H1", "H2", "H3", "H4", "H5", "H6", "ARTICLE", "A", "SPAN", "BUTTON", "PRE", "TIME", "LABEL", "LEGEND"]
+const CONTENT_TAGS = ["DIV", "UL", "SECTION", "P", "H1", "H2", "H3", "H4", "H5", "H6", "ARTICLE", "A", "SPAN", "BUTTON", "PRE", "TIME", "LABEL", "LEGEND", "STRONG"]
 
 const ALLOWED_TAGS = {
     BODY: CONTENT_TAGS,
@@ -16,7 +16,8 @@ const ALLOWED_TAGS = {
     H3: ["BOLD", "B", "SPAN", "THIN"],
     H4: ["BOLD", "B", "SPAN", "THIN"],
     H5: ["BOLD", "B", "SPAN", "THIN"],
-    UL: ["LI"],
+    UL: ["LI", "A", "STRONG"],
+    LI: ["A", "STRONG"],
     P: ["DIV", "SPAN", "A", "BOLD", "I", "THIN"],
     PRE: [],
     A: ["BOLD", "I"]
@@ -40,6 +41,10 @@ function toggleStatsDisplay(element) {
     //   const existingOverlay = document.getElementById("stats-overlay");
     //   existingOverlay.innerHTML = element.tagName + "<br>" + statsText;
     // }
+}
+
+function isText(element) {
+    return element.nodeType === Node.TEXT_NODE
 }
 
 /** Returns true if element has direct text (not inside nested children). */
@@ -128,8 +133,10 @@ function traversChildren(parentEl, allowedChildren) {
     for (const child of parentEl.children) {
         // If the child's tag is allowed under this parentTag:
         if (allowedChildren.includes(child.tagName)) {
+            console.log(child)
             if (hasDirectText(child) && notShortContent(child)) {
                 addChildEvents(child);
+                continue;
             }
         }
         traversChildren(child, allowedChildren)
