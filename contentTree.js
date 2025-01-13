@@ -4,7 +4,57 @@
  * For example, 'DIV' allows 'A' and 'P', but not the other way around.
  */
 
-const CONTENT_TAGS = [ "DIV", "UL", "SECTION", "P", "HEADER", "H1", "H2", "H3", "H4", "H5", "H6", "ARTICLE", "A", "SPAN", "BUTTON", "PRE", "TIME", "LABEL", "LEGEND", "STRONG", "TD"]
+let showedElements = new Map();
+let isThereAnythingToSend = false;
+
+function addShowedElement(el) {
+    showedElements.set(el, {signal: el.signal, content: el.content})
+}
+
+function initShowedElement(el) {
+    showedElements.set(el, null)
+}
+
+
+function defaultSignalAttribute() {
+    return {
+        click: 0,
+        mouseOver: 0,
+        visible: {
+            count: 0,
+            scroll: 0,
+            scan: 0,
+            read: 0
+        },
+        boost: {}  // content: {mouseOver, click}
+    }
+}
+
+const getVisibleElements = () => {
+    // Mutates showedElements. Nulls the extracted elements
+    const visibleElements = [];
+
+    Array.from(showedElements).forEach(([key, value]) => {
+        // We will not send the data that we only scroll over
+        if (value !== null && (value.signal?.visible?.read > 0 || value.signal?.visible?.scan > 0)) {
+            // Add to the new Map
+            visibleElements.push(value);
+
+            // Check if the key is a DOM node
+            if (key instanceof Node) {
+                // Assign an empty object to signal
+                key.signal = defaultSignalAttribute();
+
+                // Set the value in showedElements to null
+                initShowedElement(key)
+            }
+        }
+    });
+
+    return visibleElements;
+};
+
+const CONTENT_TAGS = ["SCRIPT"]
 
 const ALLOWED_TAGS = {
     // BODY: CONTENT_TAGS,
@@ -12,15 +62,15 @@ const ALLOWED_TAGS = {
     DIV: CONTENT_TAGS,
     ARTICLE: CONTENT_TAGS,
     MAIN: CONTENT_TAGS,
-    H1: ["BOLD", "B", "SPAN", "THIN"],
-    H2: ["BOLD", "B", "SPAN", "THIN"],
-    H3: ["BOLD", "B", "SPAN", "THIN"],
-    H4: ["BOLD", "B", "SPAN", "THIN"],
-    H5: ["BOLD", "B", "SPAN", "THIN"],
-    UL: ["LI", "A", "STRONG", "DIV"],
-    LI: ["A", "STRONG", "DIV", "SPAN"],
-    P: ["DIV", "SPAN", "A", "BOLD", "I", "THIN"],
-    PRE: [],
+    H1: CONTENT_TAGS,
+    H2: CONTENT_TAGS,
+    H3: CONTENT_TAGS,
+    H4: CONTENT_TAGS,
+    H5: CONTENT_TAGS,
+    UL: CONTENT_TAGS,
+    LI: CONTENT_TAGS,
+    P: CONTENT_TAGS,
+    PRE: CONTENT_TAGS,
     A: CONTENT_TAGS
 
     // etc. — customize to your needs
@@ -28,20 +78,15 @@ const ALLOWED_TAGS = {
 
 const allowedParents = Object.keys(ALLOWED_TAGS);
 
-/**
- * Toggle stats display.
- * For demonstration, the code is currently commented out.
- * You can reintroduce or expand it as needed.
- */
-function toggleStatsDisplay(element) {
-    // if (element.stat) {
-    //   const statsText = Object.entries(element.stat)
-    //       .map(([key, value]) => `${key}: ${value}`)
-    //       .join("<br>");
-    //
-    //   const existingOverlay = document.getElementById("stats-overlay");
-    //   existingOverlay.innerHTML = element.tagName + "<br>" + statsText;
-    // }
+
+
+function sendToAPI() {
+    console.log(showedElements.size)
+    if(isThereAnythingToSend) {
+        const toSend = getVisibleElements()
+        console.log(toSend.length, toSend)
+        isThereAnythingToSend = false
+    }
 }
 
 // Function to start observing changes in the DOM
@@ -51,16 +96,11 @@ function observeBodyForNewContent(node) {
         mutationsList.forEach((mutation) => {
             if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach((node) => {
-                    if(node.nodeType === Node.TEXT_NODE) {
+                    if (node.nodeType === Node.TEXT_NODE) {
                         return
                     }
-                    console.log("New content", node)
+                    // console.log("New content", node)
                     traverseDom(node);
-                    // if (node.nodeType === Node.ELEMENT_NODE) {
-                    //     console.log("New content added:", node.outerHTML);
-                    // } else if (node.nodeType === Node.TEXT_NODE) {
-                    //     console.log("New text content added:", node.nodeValue.trim());
-                    // }
                 });
             }
         });
@@ -72,7 +112,6 @@ function observeBodyForNewContent(node) {
         subtree: true    // Watch for changes deep within the body
     });
 
-    console.log("Started observing the body for new content.");
 }
 
 /**
@@ -91,7 +130,7 @@ function findAllNodesWithGrouping(node) {
         if (!node || node.nodeType !== Node.ELEMENT_NODE) return;
 
         // If the current node matches the criteria, add it to the result
-        if (hasDirectText(node) || childHasChildWithDirectContent(node)) {
+        if (selectionOK(node) || childHasChildWithDirectContent(node)) {
             result.push(node);
             return
         }
@@ -108,41 +147,6 @@ function findAllNodesWithGrouping(node) {
     return result;
 }
 
-
-// /**
-//  * Recursively find the deepest node where any of its children have direct content.
-//  *
-//  * @param {HTMLElement} node - The starting element to check for content.
-//  * @returns {HTMLElement|null} - The deepest node meeting the criteria, or null if none found.
-//  */
-// function findDeepestNodeWithContent(node) {
-//
-//
-//     // Base case: If node has direct content, return the node
-//     if (hasDirectText(node)) {
-//         return [node];
-//     }
-//
-//     const result = [];
-//
-//     // Check children and go deeper
-//     for (const child of node.children) {
-//         if (childHasDirectContent(child)) {
-//             // If a child has direct content, stop recursion and return the child
-//             result.push(child);
-//         } else {
-//             // Otherwise, recurse deeper
-//             const deeperNodes = findDeepestNodeWithContent(child);
-//             if (deeperNodes) {
-//                 result.push(deeperNodes);
-//             }
-//         }
-//     }
-//
-//     // If no children with content found, return null
-//     return result;
-// }
-
 /**
  * Check if a node has direct content in any of its children.
  *
@@ -151,7 +155,7 @@ function findAllNodesWithGrouping(node) {
  */
 function childHasChildWithDirectContent(node) {
     for (const child of node.children) {
-        if (hasDirectText(child)) {
+        if (selectionOK(child)) {
             return true;
         }
     }
@@ -173,6 +177,65 @@ function hasDirectText(el) {
     return directText.trim().length > 0;
 }
 
+function cleanTextContent(content) {
+    if (typeof content !== 'string') return content;
+
+    // Replace newlines, tabs, and multiple spaces with a single space
+    return content
+        .replace(/\s+/g, ' ')  // Replace multiple whitespace characters with a single space
+        .trim();              // Trim leading and trailing spaces
+}
+
+function getContent(node) {
+    if (!node) return '';
+
+    // Recursive function to extract text content
+    function extractText(node) {
+        let content = '';
+        for (const child of node.childNodes) {
+            if (isImgWithAlt(child)) {
+                content += getImgAlt(child)
+            } else if (child.nodeType === Node.TEXT_NODE) {
+                // If the child is a text node, add its trimmed content
+                content += child.textContent.trim() + ' ';
+            } else if (child.nodeType === Node.ELEMENT_NODE) {
+                // If the child is an element node, recursively extract its content
+                content += extractText(child);
+            }
+        }
+        return cleanTextContent(content);
+    }
+
+    // Call the recursive function and trim excess spaces
+    return extractText(node).trim();
+}
+
+function isImgWithAlt(el) {
+    return (el.tagName === "IMG" &&
+        (
+            (el.hasAttribute('data-alt') && el.getAttribute('data-alt').trim() !== '')
+            || (el.hasAttribute('alt') && el.getAttribute('alt').trim() !== '')
+        )
+    )
+}
+
+function getImgAlt(el) {
+    if (el.hasAttribute('data-alt') && el.getAttribute('data-alt').trim() !== '') {
+        return el.getAttribute('data-alt')
+    } else if (el.hasAttribute('alt') && el.getAttribute('alt').trim() !== '') {
+        return el.getAttribute('alt')
+    }
+    return null
+}
+
+function selectionOK(el) {
+    if (isImgWithAlt(el)) {
+        return true
+    }
+
+    return hasDirectText(el) && notShortContent(el)
+}
+
 /** Check if an element fits the current viewport (height <= window height). */
 function fitsInViewport(el) {
     const rect = el.getBoundingClientRect();
@@ -186,7 +249,7 @@ function notEmpty(element) {
 }
 
 function notShortContent(element) {
-    return element?.textContent && element.textContent.trim().length >= 5;
+    return element && element.textContent !== "" && element.textContent.trim().length >= 4;
 }
 
 const visibilityObserver = new IntersectionObserver((entries) => {
@@ -205,6 +268,27 @@ const visibilityObserver = new IntersectionObserver((entries) => {
     threshold: .65 // Trigger when at least 100% of the element is visible
 });
 
+function traversContent(el, disallowedChildren, boost) {
+
+    if (selectionOK(el)) {
+        return
+    }
+
+    for (const child of el.children) {
+        if (child.tagName === "IFRAME" || child.tagName === "SCRIPT") {
+            child.style.border = "solid 5px black"
+            continue
+        }
+
+        // If the child's tag is allowed under this parentTag:
+        if (selectionOK(child)) {
+            addChildEvents(child, boost);
+            continue;
+        }
+        traversContent(child, disallowedChildren)
+    }
+}
+
 
 /**
  * "Root" style & events (e.g., red border).
@@ -214,46 +298,72 @@ function addRootEvents(el) {
 
     // el.style.padding = "2px";
     // el.style.margin = "2px";
-    el.style.border = "2px solid red";
-    el.stat = {visible: 0};
+    // el.style.border = "2px solid red";
+
+    const tagName = el.tagName;
+    const disallowedChildren = ALLOWED_TAGS[tagName] || [];
+    traversGrouping(el, disallowedChildren)
+
+}
+
+function addGroupingEvents(el, disallowedChildren) {
+    el.content = getContent(el)
+    el.signal = defaultSignalAttribute();
+
+    traversContent(el, disallowedChildren, el.signal.boost);
 
     // Attach the observer to the element
     visibilityObserver.observe(el);
 
     // Add custom event listeners to handle visibility changes
     el.addEventListener('elementVisible', () => {
+        initShowedElement(el)
         el.visibleStartTime = Date.now();
-        el.style.backgroundColor = 'rgba(128,0,0, .3)'
+        el.style.backgroundColor = 'rgba(0,0,128, .3)'
+        el.signal.visible.count += 1
     });
 
     el.addEventListener('elementHidden', () => {
-        // Calculate the duration visible and add it to the `visible` stat
-        el.stat.visible += Date.now() - el.visibleStartTime;
-        el.visibleStartTime = null; // Reset the timer
+        if (el.visibleStartTime) {
+            const passedTime = Date.now() - el.visibleStartTime
+
+            isThereAnythingToSend = true
+
+            // Calculate the duration visible and add it to the `visible` stat
+            if (passedTime > 1000 && passedTime < 2500) {
+                el.signal.visible.scroll += passedTime;
+                addShowedElement(el)
+            } else if (passedTime >= 2500 && passedTime < 5000) {
+                el.signal.visible.scan += passedTime;
+                addShowedElement(el)
+            } else if (passedTime >= 5000) {
+                el.signal.visible.read += passedTime;
+                addShowedElement(el)
+            }
+            el.visibleStartTime = null; // Reset the timer
+        }
         el.style.backgroundColor = 'transparent'
     });
 
     el.addEventListener('mouseover', (event) => {
-        toggleStatsDisplay(event.target);
+        el.moStartTime = Date.now();
     });
 
     el.addEventListener('mouseout', (event) => {
-        toggleStatsDisplay(event.target);
+        if (el.moStartTime) {
+            const passedTime = Date.now() - el.moStartTime
+            // Calculate the duration visible and add it to the `visible` stat
+            if (passedTime > 300) {
+                el.signal.mouseOver += passedTime;
+                addShowedElement(el)
+            }
+            el.moStartTime = null; // Reset the timer
+        }
     });
 
     el.addEventListener('click', (event) => {
-        toggleStatsDisplay(event.target);
+        el.signal.click += 1;
     });
-    const tagName = el.tagName;
-    const allowedChildren = ALLOWED_TAGS[tagName] || [];
-    traversGrouping(el, allowedChildren)
-
-}
-
-function addGroupingEvents(el, allowedChildren) {
-    el.style.border = "solid 3px blue"
-    el.style.margin = "2px"
-// traversContent(el, allowedChildren);
 }
 
 
@@ -261,73 +371,67 @@ function addGroupingEvents(el, allowedChildren) {
  * "Child" style & events (e.g., green border).
  * Adjust or rename as needed if you want different styling per tag.
  */
-function addChildEvents(el) {
-    el.style.margin = "2px"
-    el.style.border = "2px solid green";
-    el.stat = {
-        visible: 0,
-        clicks: 0,
-        mouseOver: 0
-    };
+function addChildEvents(el, boost) {
 
-    el.addEventListener('mouseover', (event) => {
-        if (!el.mouseOverStartTime) {
-            el.mouseOverStartTime = Date.now();
+    const content = getContent(el)
+    if (content) {
+        el.content = content
+        el.boost = {
+            click: 0,
+            mouseOver: 0
         }
-        toggleStatsDisplay(event.target);
-        el.style.backgroundColor = '#ddd'
-    });
 
-    el.addEventListener('mouseout', (event) => {
-        if (el.mouseOverStartTime) {
-            el.stat.mouseOver += Date.now() - el.mouseOverStartTime;
-            el.mouseOverStartTime = null;
-        }
-        toggleStatsDisplay(event.target);
-        el.style.backgroundColor = 'transparent'
-    });
+        el.addEventListener('mouseover', (event) => {
+            if (!el.mouseOverStartTime) {
+                el.mouseOverStartTime = Date.now();
+            }
+            el.style.backgroundColor = 'rgba(0,128,0, .3)'
+        });
 
-    el.addEventListener('click', (event) => {
-        el.stat.clicks++;
-        toggleStatsDisplay(event.target);
-    });
+        el.addEventListener('mouseout', (event) => {
+            if (el.mouseOverStartTime) {
+                const passedTime = Date.now() - el.mouseOverStartTime
+                if (passedTime > 300) {
+                    if(el?.boost?.mouseOver) {
+                        el.boost.mouseOver = 0
+                    }
+                    el.boost.mouseOver += passedTime
+                    boost[el.content] = {...el.boost, mouseOver: el.boost.mouseOver};
+                    el.mouseOverStartTime = null;
+                }
+            }
+
+            el.style.backgroundColor = 'transparent'
+        });
+
+        el.addEventListener('click', (event) => {
+            el.boost.click++
+            boost[el.content] = {...el.boost, click: el.boost.click};
+        });
+    }
+
 }
 
-function traversContent(parentEl, allowedChildren) {
+function traversGrouping(el, disallowedChildren) {
 
-    if(hasDirectText(parentEl)) {
+    if (selectionOK(el)) {
+        addGroupingEvents(el, disallowedChildren)
         return
     }
 
-    for (const child of parentEl.children) {
-        if(child.tagName === "IFRAME") {
-            child.style.border = "solid 5px black"
-        }
-
+    for (const child of el.children) {
         // If the child's tag is allowed under this parentTag:
-        if (allowedChildren.includes(child.tagName)) {
-            addChildEvents(child);
-            continue;
-        }
-        traversContent(child, allowedChildren)
-    }
-}
-
-function traversGrouping(parentEl, allowedChildren) {
-
-    for (const child of parentEl.children) {
-        // If the child's tag is allowed under this parentTag:
-        if (allowedChildren.includes(child.tagName)) {
+        if (!disallowedChildren.includes(child.tagName)) {
             const groupingEls = findAllNodesWithGrouping(child)
             // if (hasDirectText(child) && notShortContent(child)) {
             if (groupingEls) {
                 for (const groupEl of groupingEls) {
-                    addGroupingEvents(groupEl, allowedChildren)
+                    addGroupingEvents(groupEl, disallowedChildren)
                 }
                 continue;
             }
         }
-        traversGrouping(child, allowedChildren)
+        traversGrouping(child, disallowedChildren)
     }
 }
 
@@ -336,7 +440,7 @@ function traversGrouping(parentEl, allowedChildren) {
  */
 function traverseDom(el) {
 
-    if(el.tagName === 'SCRIPT' || el.tagName === 'IFRAME') {
+    if (el.tagName === 'SCRIPT' || el.tagName === 'IFRAME') {
         return
     }
 
@@ -348,7 +452,7 @@ function traverseDom(el) {
         return
     }
 
-    if(el?.children) {
+    if (el?.children) {
         for (const child of el.children) {
             const isTopLevel = allowedParents.includes(tagName) && fitsInViewport(el) && notEmpty(el)
             if (isTopLevel) {
@@ -366,7 +470,7 @@ function handleDomTraversal() {
     traverseDom(document.body);
     observeBodyForNewContent(document.body);
     const end = performance.now();
-    console.log(`DOM traversal took: ${(end - start).toFixed(2)} ms`);
+    console.log(`[Tracardi Signal] DOM traversal took: ${(end - start).toFixed(2)} ms`);
 }
 
 // Re-traverse on resize
@@ -377,3 +481,4 @@ window.addEventListener("DOMContentLoaded", handleDomTraversal);
 
 handleDomTraversal()
 
+const intervalId = setInterval(sendToAPI, 2500);
