@@ -5,13 +5,24 @@
  */
 
 let showedElements = new Map();
+let toSendElements = []
+
 let isThereAnythingToSend = false;
 
-function addShowedElement(el) {
-    showedElements.set(el, {signal: el.signal, content: el.content})
+function deleteToSendElements() {
+    toSendElements = []
 }
 
-function initShowedElement(el) {
+function deleteShowed(el) {
+    showedElements.delete(el)
+}
+
+function addToSendElement(el) {
+    toSendElements.push({content: el.content, signal: el.signal, element: {name: el.tagName}})
+    deleteShowed(el)
+}
+
+function addShowedElement(el) {
     showedElements.set(el, null)
 }
 
@@ -30,28 +41,45 @@ function defaultSignalAttribute() {
     }
 }
 
-const getVisibleElements = () => {
-    // Mutates showedElements. Nulls the extracted elements
-    const visibleElements = [];
-
-    Array.from(showedElements).forEach(([key, value]) => {
+const makeElementsInvisible = () => {
+    Array.from(showedElements).forEach(([el, value]) => {
+        // If leaving page, make elements invisible
         // We will not send the data that we only scroll over
-        if (value !== null && (value.signal?.visible?.read > 0 || value.signal?.visible?.scan > 0)) {
-            // Add to the new Map
-            visibleElements.push(value);
-
-            // Check if the key is a DOM node
-            if (key instanceof Node) {
+        if (el instanceof Node) {
+            el = makeInvisible(el)
+            if (el !== false) {
+                addToSendElement(el)
                 // Assign an empty object to signal
-                key.signal = defaultSignalAttribute();
-
-                // Set the value in showedElements to null
-                initShowedElement(key)
+                el.signal = defaultSignalAttribute();
             }
         }
     });
+};
 
-    return visibleElements;
+
+const getToSendElements = () => {
+    // Mutates showedElements. Nulls the extracted elements
+    const payload = [];
+
+    toSendElements.forEach(el => {
+        // If leaving page, make elements invisible
+
+        // We will not send the data that we only scroll over
+        if (el.signal?.visible?.read > 0 || el.signal?.visible?.scan > 0 || el.signal?.click > 0) {
+            // Add to the new Map
+            payload.push({
+                element: el.element,
+                content: el.content,
+                signal: el.signal
+            });
+
+            // Assign an empty object to signal
+            el.signal = defaultSignalAttribute();
+        }
+
+    });
+    deleteToSendElements()
+    return payload;
 };
 
 const CONTENT_TAGS = ["SCRIPT"]
@@ -79,11 +107,11 @@ const ALLOWED_TAGS = {
 const allowedParents = Object.keys(ALLOWED_TAGS);
 
 
-
 function sendToAPI() {
-    console.log(showedElements.size)
-    if(isThereAnythingToSend) {
-        const toSend = getVisibleElements()
+    console.log("showed", showedElements.size, showedElements)
+    console.log("toSend", toSendElements.length, toSendElements)
+    if (isThereAnythingToSend) {
+        const toSend = getToSendElements()
         console.log(toSend.length, toSend)
         isThereAnythingToSend = false
     }
@@ -306,6 +334,27 @@ function addRootEvents(el) {
 
 }
 
+function makeInvisible(el) {
+    if (el.visibleStartTime) {
+        console.log('invisible')
+        const passedTime = Date.now() - el.visibleStartTime
+        el.visibleStartTime = null; // Reset the timer
+        deleteShowed(el)
+        // Calculate the duration visible and add it to the `visible` stat
+        if (passedTime > 1000 && passedTime < 2500) {
+            el.signal.visible.scroll += passedTime;
+            return el
+        } else if (passedTime >= 2500 && passedTime < 5000) {
+            el.signal.visible.scan += passedTime;
+            return el
+        } else if (passedTime >= 5000) {
+            el.signal.visible.read += passedTime;
+            return el
+        }
+    }
+    return false
+}
+
 function addGroupingEvents(el, disallowedChildren) {
     el.content = getContent(el)
     el.signal = defaultSignalAttribute();
@@ -317,30 +366,16 @@ function addGroupingEvents(el, disallowedChildren) {
 
     // Add custom event listeners to handle visibility changes
     el.addEventListener('elementVisible', () => {
-        initShowedElement(el)
         el.visibleStartTime = Date.now();
         el.style.backgroundColor = 'rgba(0,0,128, .3)'
         el.signal.visible.count += 1
+        addShowedElement(el)
     });
 
     el.addEventListener('elementHidden', () => {
-        if (el.visibleStartTime) {
-            const passedTime = Date.now() - el.visibleStartTime
-
+        if (makeInvisible(el)) {
+            addToSendElement(el)
             isThereAnythingToSend = true
-
-            // Calculate the duration visible and add it to the `visible` stat
-            if (passedTime > 1000 && passedTime < 2500) {
-                el.signal.visible.scroll += passedTime;
-                addShowedElement(el)
-            } else if (passedTime >= 2500 && passedTime < 5000) {
-                el.signal.visible.scan += passedTime;
-                addShowedElement(el)
-            } else if (passedTime >= 5000) {
-                el.signal.visible.read += passedTime;
-                addShowedElement(el)
-            }
-            el.visibleStartTime = null; // Reset the timer
         }
         el.style.backgroundColor = 'transparent'
     });
@@ -355,7 +390,7 @@ function addGroupingEvents(el, disallowedChildren) {
             // Calculate the duration visible and add it to the `visible` stat
             if (passedTime > 300) {
                 el.signal.mouseOver += passedTime;
-                addShowedElement(el)
+                addToSendElement(el)
             }
             el.moStartTime = null; // Reset the timer
         }
@@ -363,6 +398,8 @@ function addGroupingEvents(el, disallowedChildren) {
 
     el.addEventListener('click', (event) => {
         el.signal.click += 1;
+        addToSendElement(el)
+        isThereAnythingToSend = true
     });
 }
 
@@ -372,6 +409,10 @@ function addGroupingEvents(el, disallowedChildren) {
  * Adjust or rename as needed if you want different styling per tag.
  */
 function addChildEvents(el, boost) {
+
+    if (!(el instanceof Node)) {
+        return
+    }
 
     const content = getContent(el)
     if (content) {
@@ -392,11 +433,13 @@ function addChildEvents(el, boost) {
             if (el.mouseOverStartTime) {
                 const passedTime = Date.now() - el.mouseOverStartTime
                 if (passedTime > 300) {
-                    if(el?.boost?.mouseOver) {
+                    if (el?.boost?.mouseOver) {
                         el.boost.mouseOver = 0
                     }
                     el.boost.mouseOver += passedTime
-                    boost[el.content] = {...el.boost, mouseOver: el.boost.mouseOver};
+                    if (boost) {
+                        boost[el.content] = {...el.boost, mouseOver: el.boost.mouseOver};
+                    }
                     el.mouseOverStartTime = null;
                 }
             }
@@ -467,10 +510,24 @@ function traverseDom(el) {
 
 function handleDomTraversal() {
     const start = performance.now();
+    trackTabChange()
     traverseDom(document.body);
     observeBodyForNewContent(document.body);
     const end = performance.now();
     console.log(`[Tracardi Signal] DOM traversal took: ${(end - start).toFixed(2)} ms`);
+}
+
+function trackTabChange() {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            console.debug("Tab hidden")
+            makeElementsInvisible()
+            isThereAnythingToSend = true
+
+        } else if (document.visibilityState === 'visible') {
+            console.debug("Tab visible")
+        }
+    });
 }
 
 // Re-traverse on resize
