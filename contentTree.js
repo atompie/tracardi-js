@@ -7,8 +7,6 @@
 let showedElements = new Map();
 let toSendElements = []
 
-let isThereAnythingToSend = false;
-
 function deleteToSendElements() {
     toSendElements = []
 }
@@ -68,6 +66,7 @@ const getToSendElements = () => {
         if (el.signal?.visible?.read > 0 || el.signal?.visible?.scan > 0 || el.signal?.click > 0) {
             // Add to the new Map
             payload.push({
+                id: fnv1aHash(el.element.name, el.content),
                 element: el.element,
                 content: el.content,
                 signal: el.signal
@@ -78,7 +77,7 @@ const getToSendElements = () => {
         }
 
     });
-    deleteToSendElements()
+
     return payload;
 };
 
@@ -109,11 +108,19 @@ const allowedParents = Object.keys(ALLOWED_TAGS);
 
 function sendToAPI() {
     console.log("showed", showedElements.size, showedElements)
-    console.log("toSend", toSendElements.length, toSendElements)
-    if (isThereAnythingToSend) {
-        const toSend = getToSendElements()
-        console.log(toSend.length, toSend)
-        isThereAnythingToSend = false
+    if (toSendElements.length > 0) {
+        try {
+            const toSend = getToSendElements()
+
+            console.log("toSend", toSend.length, toSend)
+
+            if (toSend.length > 0) {
+                pushData('http://localhost:20002/signal', toSend)
+            }
+            
+        } catch (e) {
+            console.error(e)
+        }
     }
 }
 
@@ -375,7 +382,6 @@ function addGroupingEvents(el, disallowedChildren) {
     el.addEventListener('elementHidden', () => {
         if (makeInvisible(el)) {
             addToSendElement(el)
-            isThereAnythingToSend = true
         }
         el.style.backgroundColor = 'transparent'
     });
@@ -399,7 +405,6 @@ function addGroupingEvents(el, disallowedChildren) {
     el.addEventListener('click', (event) => {
         el.signal.click += 1;
         addToSendElement(el)
-        isThereAnythingToSend = true
     });
 }
 
@@ -508,6 +513,59 @@ function traverseDom(el) {
 
 }
 
+function fnv1aHash(type, tag, content) {
+    const text = `${type}:${tag}:${content}`;
+    let hash = 0x811c9dc5; // FNV-1a 32-bit offset basis
+
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+
+    return (hash >>> 0).toString(16); // Convert to 32-bit unsigned hex string
+}
+
+function pushData(apiUrl, pushPayload, isBeacon = false) {
+
+    const payload = {
+        profile: {
+            id: 'xxx'
+        },
+        signals: pushPayload
+    }
+    console.log(payload)
+
+    if (isBeacon && navigator.sendBeacon) {
+        console.debug("Data pushed by beacon")
+        const blob = new Blob([JSON.stringify(payload)], {type: 'application/json'});
+        const success = navigator.sendBeacon(apiUrl, blob);
+        if (!success) {
+            console.error("Failed to send data via Beacon API.");
+        }
+    } else {
+        console.debug("Data pushed by fetch")
+        const data = JSON.stringify(payload);
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: data,
+        })
+            .then(response => {
+                if (!response.ok) {
+                    console.error("Error sending data:", response.statusText);
+                } else {
+                    deleteToSendElements()
+                }
+            })
+            .catch(error => {
+                console.error("Error sending data:", error);
+                // Log an error without clearing pendingPayload
+            });
+    }
+}
+
 function handleDomTraversal() {
     const start = performance.now();
     trackTabChange()
@@ -522,7 +580,6 @@ function trackTabChange() {
         if (document.visibilityState === 'hidden') {
             console.debug("Tab hidden")
             makeElementsInvisible()
-            isThereAnythingToSend = true
 
         } else if (document.visibilityState === 'visible') {
             console.debug("Tab visible")
