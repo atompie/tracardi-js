@@ -16,7 +16,13 @@ function deleteShowed(el) {
 }
 
 function addToSendElement(el) {
-    toSendElements.push({content: el.content, signal: el.signal, element: {name: el.tagName}})
+    const rect = el.getBoundingClientRect();
+    toSendElements.push({
+        content: el.content, signal: el.signal, element: {
+            name: el.tagName,
+            dim: {width: rect.width, height: rect.height},
+        }
+    })
     deleteShowed(el)
 }
 
@@ -25,17 +31,17 @@ function addShowedElement(el) {
 }
 
 
-function defaultSignalAttribute() {
+function defaultSignalAttribute(el) {
     return {
         click: 0,
-        mouseOver: 0,
+        mouseover: 0,
         visible: {
             count: 0,
             scroll: 0,
             scan: 0,
             read: 0
         },
-        boost: {}  // content: {mouseOver, click}
+        boost: {}  // content: {mouseover, click}
     }
 }
 
@@ -48,7 +54,7 @@ const makeElementsInvisible = () => {
             if (el !== false) {
                 addToSendElement(el)
                 // Assign an empty object to signal
-                el.signal = defaultSignalAttribute();
+                el.signal = defaultSignalAttribute(el);
             }
         }
     });
@@ -73,7 +79,7 @@ const getToSendElements = () => {
             });
 
             // Assign an empty object to signal
-            el.signal = defaultSignalAttribute();
+            el.signal = defaultSignalAttribute(el);
         }
 
     });
@@ -117,7 +123,7 @@ function sendToAPI() {
             if (toSend.length > 0) {
                 pushData('http://localhost:20002/signal', toSend)
             }
-            
+
         } catch (e) {
             console.error(e)
         }
@@ -284,7 +290,7 @@ function notEmpty(element) {
 }
 
 function notShortContent(element) {
-    return element && element.textContent !== "" && element.textContent.trim().length >= 4;
+    return element && element.textContent !== "" && element.textContent.trim().length >= 24;
 }
 
 const visibilityObserver = new IntersectionObserver((entries) => {
@@ -320,7 +326,7 @@ function traversContent(el, disallowedChildren, boost) {
             addChildEvents(child, boost);
             continue;
         }
-        traversContent(child, disallowedChildren)
+        traversContent(child, disallowedChildren, boost)
     }
 }
 
@@ -343,8 +349,8 @@ function addRootEvents(el) {
 
 function makeInvisible(el) {
     if (el.visibleStartTime) {
-        console.log('invisible')
         const passedTime = Date.now() - el.visibleStartTime
+
         el.visibleStartTime = null; // Reset the timer
         deleteShowed(el)
         // Calculate the duration visible and add it to the `visible` stat
@@ -364,7 +370,7 @@ function makeInvisible(el) {
 
 function addGroupingEvents(el, disallowedChildren) {
     el.content = getContent(el)
-    el.signal = defaultSignalAttribute();
+    el.signal = defaultSignalAttribute(el);
 
     traversContent(el, disallowedChildren, el.signal.boost);
 
@@ -395,7 +401,7 @@ function addGroupingEvents(el, disallowedChildren) {
             const passedTime = Date.now() - el.moStartTime
             // Calculate the duration visible and add it to the `visible` stat
             if (passedTime > 300) {
-                el.signal.mouseOver += passedTime;
+                el.signal.mouseover += passedTime;
                 addToSendElement(el)
             }
             el.moStartTime = null; // Reset the timer
@@ -424,7 +430,7 @@ function addChildEvents(el, boost) {
         el.content = content
         el.boost = {
             click: 0,
-            mouseOver: 0
+            mouseover: 0
         }
 
         el.addEventListener('mouseover', (event) => {
@@ -438,12 +444,12 @@ function addChildEvents(el, boost) {
             if (el.mouseOverStartTime) {
                 const passedTime = Date.now() - el.mouseOverStartTime
                 if (passedTime > 300) {
-                    if (el?.boost?.mouseOver) {
-                        el.boost.mouseOver = 0
+                    if (el?.boost?.mouseover) {
+                        el.boost.mouseover = 0
                     }
-                    el.boost.mouseOver += passedTime
+                    el.boost.mouseover += passedTime
                     if (boost) {
-                        boost[el.content] = {...el.boost, mouseOver: el.boost.mouseOver};
+                        boost[el.content] = {...el.boost, mouseover: el.boost.mouseover};
                     }
                     el.mouseOverStartTime = null;
                 }
@@ -533,6 +539,7 @@ function pushData(apiUrl, pushPayload, isBeacon = false) {
         },
         signals: pushPayload
     }
+
     console.log(payload)
 
     if (isBeacon && navigator.sendBeacon) {
