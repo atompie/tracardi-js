@@ -87,30 +87,8 @@ const getToSendElements = () => {
     return payload;
 };
 
-const CONTENT_TAGS = ["SCRIPT"]
-
-const ALLOWED_TAGS = {
-    // BODY: CONTENT_TAGS,
-    SECTION: CONTENT_TAGS,
-    DIV: CONTENT_TAGS,
-    ARTICLE: CONTENT_TAGS,
-    MAIN: CONTENT_TAGS,
-    H1: CONTENT_TAGS,
-    H2: CONTENT_TAGS,
-    H3: CONTENT_TAGS,
-    H4: CONTENT_TAGS,
-    H5: CONTENT_TAGS,
-    UL: CONTENT_TAGS,
-    LI: CONTENT_TAGS,
-    P: CONTENT_TAGS,
-    PRE: CONTENT_TAGS,
-    A: CONTENT_TAGS
-
-    // etc. — customize to your needs
-};
-
-const allowedParents = Object.keys(ALLOWED_TAGS);
-
+const allowedParents = ['SECTION', 'DIV', 'ARTICLE', 'MAIN', 'HEADER', 'H1', 'H2', 'H3', 'H4', 'H5', 'UL', 'LI', 'P', 'PRE', 'A']
+const disAllowedTags = ["SCRIPT", "STYLE", "IFRAME"]
 
 function sendToAPI() {
     console.log("showed", showedElements.size, showedElements)
@@ -211,7 +189,7 @@ function hasDirectText(el) {
 
     let directText = "";
     for (const child of el.childNodes) {
-        if (child.nodeType === Node.TEXT_NODE) {
+        if (child.nodeType === Node.TEXT_NODE && child?.parentNode?.tagName && !disAllowedTags.includes(child.parentNode.tagName)) {
             directText += child.nodeValue;
         }
     }
@@ -239,7 +217,7 @@ function getContent(node) {
             } else if (child.nodeType === Node.TEXT_NODE) {
                 // If the child is a text node, add its trimmed content
                 content += child.textContent.trim() + ' ';
-            } else if (child.nodeType === Node.ELEMENT_NODE) {
+            } else if (child.nodeType === Node.ELEMENT_NODE && !disAllowedTags.includes(child.tagName)) {
                 // If the child is an element node, recursively extract its content
                 content += extractText(child);
             }
@@ -309,7 +287,7 @@ const visibilityObserver = new IntersectionObserver((entries) => {
     threshold: .65 // Trigger when at least 100% of the element is visible
 });
 
-function traversContent(el, disallowedChildren, boost) {
+function traversContent(el, boost) {
 
     if (selectionOK(el)) {
         return
@@ -317,7 +295,6 @@ function traversContent(el, disallowedChildren, boost) {
 
     for (const child of el.children) {
         if (child.tagName === "IFRAME" || child.tagName === "SCRIPT") {
-            child.style.border = "solid 5px black"
             continue
         }
 
@@ -326,7 +303,7 @@ function traversContent(el, disallowedChildren, boost) {
             addChildEvents(child, boost);
             continue;
         }
-        traversContent(child, disallowedChildren, boost)
+        traversContent(child, boost)
     }
 }
 
@@ -337,13 +314,11 @@ function traversContent(el, disallowedChildren, boost) {
  */
 function addRootEvents(el) {
 
-    // el.style.padding = "2px";
-    // el.style.margin = "2px";
-    // el.style.border = "2px solid red";
+    el.style.padding = "2px";
+    el.style.margin = "2px";
+    el.style.border = "2px solid red";
 
-    const tagName = el.tagName;
-    const disallowedChildren = ALLOWED_TAGS[tagName] || [];
-    traversGrouping(el, disallowedChildren)
+    traversGrouping(el)
 
 }
 
@@ -368,11 +343,11 @@ function makeInvisible(el) {
     return false
 }
 
-function addGroupingEvents(el, disallowedChildren) {
+function addGroupingEvents(el) {
     el.content = getContent(el)
     el.signal = defaultSignalAttribute(el);
 
-    traversContent(el, disallowedChildren, el.signal.boost);
+    traversContent(el, el.signal.boost);
 
     // Attach the observer to the element
     visibilityObserver.observe(el);
@@ -466,26 +441,25 @@ function addChildEvents(el, boost) {
 
 }
 
-function traversGrouping(el, disallowedChildren) {
-
+function traversGrouping(el) {
+    console.log(selectionOK(el))
     if (selectionOK(el)) {
-        addGroupingEvents(el, disallowedChildren)
+        addGroupingEvents(el)
         return
     }
 
     for (const child of el.children) {
         // If the child's tag is allowed under this parentTag:
-        if (!disallowedChildren.includes(child.tagName)) {
+        if (!disAllowedTags.includes(child.tagName)) {
             const groupingEls = findAllNodesWithGrouping(child)
-            // if (hasDirectText(child) && notShortContent(child)) {
             if (groupingEls) {
                 for (const groupEl of groupingEls) {
-                    addGroupingEvents(groupEl, disallowedChildren)
+                    addGroupingEvents(groupEl)
                 }
                 continue;
             }
         }
-        traversGrouping(child, disallowedChildren)
+        traversGrouping(child)
     }
 }
 
@@ -501,6 +475,7 @@ function traverseDom(el) {
     const tagName = el.tagName;
 
     const isTopLevel = allowedParents.includes(tagName) && fitsInViewport(el) && notEmpty(el)
+
     if (isTopLevel) {
         addRootEvents(el);
         return
