@@ -27,19 +27,6 @@ function collectBrowserData() {
             resolution: `${screen.width}x${screen.height}`,
             colorDepth: screen.colorDepth
         },
-        fonts: (function () {
-            const span = document.createElement('span');
-            span.style.fontSize = '72px';
-            span.innerHTML = 'A';
-            document.body.appendChild(span);
-            const availableFonts = ["Arial", "Courier", "Georgia", "Times", "Verdana", "Palatino", "Times New Roman", "Geneva", "Apple Symbols", "Ubuntu"];
-            const detected = availableFonts.filter(font => {
-                span.style.fontFamily = font;
-                return span.offsetWidth !== span.offsetHeight;
-            });
-            document.body.removeChild(span);
-            return detected;
-        })(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale: navigator.language,
         touch: 'ontouchstart' in window,
@@ -108,9 +95,9 @@ function collectOutlinks(allowedDomains) {
 async function getIp() {
     let userIp = '0.0.0.0'
     try {
-        userIp = await fetch('https://api64.ipify.org?format=json')
+        userIp = await fetch('https://geolocation-db.com/json/')
             .then(response => response.json())
-            .then(data => data.ip);
+            .then(data => data.IPv4);
     } catch (e) {
         userIp = '0.0.0.0'
     }
@@ -119,22 +106,27 @@ async function getIp() {
 }
 
 async function main() {
+    console.debug(`[CrossKey] start`)
+
     const localStorageAppKey = '__ck_app_id';
-    const localStorageDeviceKey = '__ck_dev_id';
-    let appId = localStorage.getItem(localStorageAppKey);
+    const localStorageDeviceKey = '__ck_webp_id';
 
-    if (!appId) {
-        const browserData = collectBrowserData();
-        appId = await hashFingerprint(browserData);
-        localStorage.setItem(localStorageAppKey, appId);
-    }
-
-    const deviceId = localStorage.getItem(localStorageDeviceKey);
-    if (!deviceId) {
-        localStorage.setItem(localStorageDeviceKey, await generateDeviceId());
+    let webPageId = localStorage.getItem(localStorageDeviceKey);
+    if (!webPageId) {
+        webPageId = await generateDeviceId()
+        localStorage.setItem(localStorageDeviceKey, webPageId);
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
+
+        let appId = localStorage.getItem(localStorageAppKey);
+
+        if (!appId) {
+            const browserData = collectBrowserData();
+            appId = await hashFingerprint(browserData);
+            localStorage.setItem(localStorageAppKey, appId);
+        }
+
         const domainName = window.location.hostname;
         const currentUrl = window.location.href;
 
@@ -148,7 +140,7 @@ async function main() {
 
         const payload = {
             app_id: appId,
-            device_id: deviceId,
+            web_id: webPageId,
             domain: domainName,
             url: currentUrl,
             paths: outlinks,
