@@ -22,6 +22,7 @@
     "yarn": "^1.22.17"
   },
   "scripts": {
+    "build-ck": "yarn ck:browserify && yarn ck:minify",
     "build-signal": "yarn signal:browserify && yarn signal:minify",
     "build": "yarn tracker:browserify && yarn tracker:minify && yarn loader:browserify && yarn loader:minify ",
     "tracker:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/index.js -s tracardi -o dist/liliput.js",
@@ -32,6 +33,9 @@
 
     "signal:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/signal.js -s tracardi -o dist/signal.js",
     "signal:minify": "cd dist && uglifyjs -c -m -o signal.min.js --source-map url=signal.min.js.map -- signal.js",
+
+    "ck:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/global_id.js -s tracardi -o dist/ck.js",
+    "ck:minify": "cd dist && uglifyjs -c -m -o ck.min.js --source-map url=ck.min.js.map -- ck.js",
 
     "clean": "rimraf *.log dist/*",
     "clean:all": "yarn clean && rimraf node_modules"
