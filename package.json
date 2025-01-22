@@ -6,6 +6,8 @@
     "@analytics/listener-utils": "^0.2.6",
     "@analytics/storage-utils": "^0.2.14",
     "@babel/core": "^7.0.0-0",
+    "@rajesh896/broprint.js": "^2.1.1",
+    "@thumbmarkjs/thumbmarkjs": "^0.16.1",
     "@types/dlv": "^1.0.0",
     "analytics": "^0.7.5",
     "babelify": "10",
@@ -22,21 +24,23 @@
     "yarn": "^1.22.17"
   },
   "scripts": {
+    "build-tm": "yarn tm:browserify && yarn tm:minify",
+    "build-fp": "yarn fp:browserify && yarn fp:minify",
     "build-ck": "yarn ck:browserify && yarn ck:minify",
     "build-signal": "yarn signal:browserify && yarn signal:minify",
     "build": "yarn tracker:browserify && yarn tracker:minify && yarn loader:browserify && yarn loader:minify ",
     "tracker:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/index.js -s tracardi -o dist/liliput.js",
     "tracker:minify": "cd dist && uglifyjs -c -m -o liliput.min.js --source-map url=liliput.min.js.map -- liliput.js",
-
     "loader:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/loader.js -s tracardi -o dist/loader.js",
     "loader:minify": "cd dist && uglifyjs -c -m -o loader.min.js --source-map url=loader.min.js.map -- loader.js",
-
     "signal:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/signal.js -s tracardi -o dist/signal.js",
     "signal:minify": "cd dist && uglifyjs -c -m -o signal.min.js --source-map url=signal.min.js.map -- signal.js",
-
-    "ck:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/global_id.js -s tracardi -o dist/ck.js",
+    "ck:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] src/ck.js -s tracardi -o dist/ck.js",
     "ck:minify": "cd dist && uglifyjs -c -m -o ck.min.js --source-map url=ck.min.js.map -- ck.js",
-
+    "fp:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] fp-test.js -s tracardi -o dist/fp.js",
+    "fp:minify": "cd dist && uglifyjs -c -m -o fp.min.js --source-map url=fp.min.js.map -- fp.js",
+    "tm:browserify": "browserify -t [ babelify --presets [ @babel/preset-env  ] ] tm-test.js -s tracardi -o dist/tm.js",
+    "tm:minify": "cd dist && uglifyjs -c -m -o tm.min.js --source-map url=tm.min.js.map -- tm.js",
     "clean": "rimraf *.log dist/*",
     "clean:all": "yarn clean && rimraf node_modules"
   }
